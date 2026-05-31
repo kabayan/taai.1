@@ -661,7 +661,12 @@
         </div>
 
         <div class="form-group">
-          <label>対話履歴</label>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+            <label style="margin-bottom: 0;">対話履歴</label>
+            <button id="btnClearChat" style="min-height: auto; padding: 0.3rem 0.75rem; font-size: 0.75rem; border-radius: 6px; background: rgba(239, 68, 68, 0.15); border: 1px solid var(--error); color: #ef4444; cursor: pointer; display: inline-flex; align-items: center; gap: 0.25rem;">
+              🗑️ 履歴をクリア
+            </button>
+          </div>
           <div class="chat-container" id="chatFeed">
             <div class="chat-msg system">「音声認識を開始」ボタンを押して話しかけてください。「テレビをつけて」などの登録音声で赤外線を送信します。</div>
           </div>

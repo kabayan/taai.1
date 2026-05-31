@@ -1438,6 +1438,18 @@ const VoiceControl = (() => {
       $('log').innerHTML = '';
     });
 
+    // 対話履歴をクリア
+    const btnClearChat = $('btnClearChat');
+    if (btnClearChat) {
+      btnClearChat.addEventListener('click', () => {
+        const feed = $('chatFeed');
+        if (feed) {
+          feed.innerHTML = '<div class="chat-msg system">対話履歴をクリアしました。</div>';
+          log('対話履歴をクリアしました');
+        }
+      });
+    }
+
     // マッピング登録
     $('btnAddMapping').addEventListener('click', addMapping);
     $('btnCancelEdit').addEventListener('click', cancelEditMapping);
