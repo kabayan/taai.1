@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Voice Control Center - Notif BLE v10</title>
+<style>
+  :root {
+    --bg-color: #0a0b10;
+    --card-bg: rgba(20, 22, 37, 0.6);
+    --card-border: rgba(255, 255, 255, 0.08);
+    --text-main: #f3f4f6;
+    --text-muted: #9ca3af;
+    --primary: #06b6d4; /* シアン */
+    --primary-glow: rgba(6, 182, 212, 0.4);
+    --secondary: #8b5cf6; /* バイオレット */
+    --secondary-glow: rgba(139, 92, 246, 0.4);
+    --accent: #ec4899; /* マゼンタ */
+    --accent-glow: rgba(236, 72, 153, 0.4);
+    --success: #10b981; /* グリーン */
+    --error: #ef4444; /* レッド */
+    --font-sans: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    background-color: var(--bg-color);
+    background-image: 
+      radial-gradient(at 10% 20%, rgba(139, 92, 246, 0.15) 0px, transparent 50%),
+      radial-gradient(at 90% 80%, rgba(6, 182, 212, 0.15) 0px, transparent 50%);
+    color: var(--text-main);
+    font-family: var(--font-sans);
+    line-height: 1.6;
+    padding-bottom: 2rem;
+    min-height: 100vh;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1rem;
+  }
+
+  header {
+    margin-bottom: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--card-border);
+    padding-bottom: 1rem;
+  }
+
+  .back-link {
+    color: var(--primary);
+    text-decoration: none;
+    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: color 0.2s;
+  }
+
+  .back-link:hover {
+    color: #22d3ee;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    background: linear-gradient(to right, #06b6d4, #8b5cf6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* グラスモルフィズムカード */
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-radius: 16px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  }
+
+  .card-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: var(--primary);
+    border-left: 3px solid var(--primary);
+    padding-left: 0.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  /* タッチターゲットを考慮したフォーム要素 */
+  button, select, input {
+    font-family: inherit;
+    font-size: 1rem;
+    color: var(--text-main);
+  }
+
+  button {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 0.75rem 1.25rem;
+    font-weight: 500;
+    cursor: pointer;
+    min-height: 44px; /* タッチに最適 */
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  button:active {
+    transform: scale(0.97);
+  }
+
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--primary), #0891b2);
+    border: none;
+    box-shadow: 0 0 15px var(--primary-glow);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    box-shadow: 0 0 25px var(--primary-glow);
+    filter: brightness(1.1);
+  }
+
+  .btn-accent {
+    background: linear-gradient(135deg, var(--accent), #db2777);
+    border: none;
+    box-shadow: 0 0 15px var(--accent-glow);
+  }
+
+  .btn-accent:hover:not(:disabled) {
+    box-shadow: 0 0 25px var(--accent-glow);
+    filter: brightness(1.1);
+  }
+
+  .btn-danger {
+    background: var(--error);
+    border: none;
+  }
+
+  /* インプット・セレクト */
+  input[type="text"], input[type="number"], select {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 0.75rem;
+    min-height: 44px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input[type="text"]:focus, input[type="number"]:focus, select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 5px var(--primary-glow);
+  }
+
+  .form-group {
+    margin-bottom: 1rem;
+  }
+
+  .form-group label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 0.3rem;
+  }
+
+  /* レイアウトグリッド - レスポンシブ対応 */
+  .grid-layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  @media (min-width: 800px) {
+    .grid-layout {
+      grid-template-columns: 350px 1fr;
+    }
+    
+    .main-panel {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 1rem;
+    }
+  }
+
+  /* 接続状態表示 */
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.85rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 9999px;
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--error);
+    font-weight: 500;
+  }
+
+  .status-badge.connected {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--success);
+  }
+
+  /* ホログラフィック・ボイス球体 */
+  .voice-sphere-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem 0;
+  }
+
+  .voice-sphere {
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, #06b6d4, #8b5cf6, #0a0b10);
+    box-shadow: 
+      0 0 30px rgba(6, 182, 212, 0.3),
+      inset 0 0 20px rgba(255, 255, 255, 0.2);
+    position: relative;
+    transition: all 0.5s ease;
+    animation: float 4s ease-in-out infinite;
+  }
+
+  /* 状態別の球体スタイル */
+  .voice-sphere.listening {
+    background: radial-gradient(circle at 30% 30%, #8b5cf6, #ec4899, #0a0b10);
+    box-shadow: 
+      0 0 45px rgba(139, 92, 246, 0.6),
+      inset 0 0 25px rgba(255, 255, 255, 0.3);
+    animation: float 2s ease-in-out infinite, pulse-listening 1.2s infinite alternate;
+  }
+
+  .voice-sphere.speaking {
+    background: radial-gradient(circle at 30% 30%, #ec4899, #f59e0b, #0a0b10);
+    box-shadow: 
+      0 0 50px rgba(236, 72, 153, 0.7),
+      inset 0 0 30px rgba(255, 255, 255, 0.3);
+    animation: float 1s ease-in-out infinite, pulse-speaking 0.5s infinite alternate;
+  }
+
+  .voice-sphere::after {
+    content: '';
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    right: 5px;
+    bottom: 5px;
+    border-radius: 50%;
+    border: 1px dashed rgba(255, 255, 255, 0.15);
+    animation: rotate 10s linear infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+  }
+
+  @keyframes rotate {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  @keyframes pulse-listening {
+    0% { transform: scale(1) translateY(-5px); }
+    100% { transform: scale(1.08) translateY(-5px); }
+  }
+
+  @keyframes pulse-speaking {
+    0% { transform: scale(1) translateY(-5px); }
+    100% { transform: scale(1.15) translateY(-5px); }
+  }
+
+  .voice-status-text {
+    margin-top: 1rem;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  /* 対話フィード（チャット） */
+  .chat-container {
+    height: 300px;
+    overflow-y: auto;
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    scroll-behavior: smooth;
+  }
+
+  .chat-msg {
+    max-width: 85%;
+    padding: 0.65rem 0.85rem;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    word-break: break-all;
+    animation: fade-in 0.3s ease;
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .chat-msg.user {
+    background: rgba(139, 92, 246, 0.2);
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    align-self: flex-end;
+    border-bottom-right-radius: 2px;
+  }
+
+  .chat-msg.toy {
+    background: rgba(6, 182, 212, 0.2);
+    border: 1px solid rgba(6, 182, 212, 0.3);
+    align-self: flex-start;
+    border-bottom-left-radius: 2px;
+  }
+
+  .chat-msg.system {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--card-border);
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    align-self: center;
+    max-width: 95%;
+    border-radius: 6px;
+  }
+
+  /* 音声-IRマッピングエディタ */
+  .mapping-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 0.25rem;
+  }
+
+  .mapping-item {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    padding: 0.85rem;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+    position: relative;
+    transition: border-color 0.2s;
+  }
+
+  @media (min-width: 600px) {
+    .mapping-item {
+      grid-template-columns: 1fr 1fr auto;
+      align-items: center;
+      gap: 1rem;
+    }
+  }
+
+  .mapping-item:hover {
+    border-color: rgba(6, 182, 212, 0.3);
+  }
+
+  .mapping-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .mapping-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+
+  .mapping-value {
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+
+  .mapping-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+  }
+
+  .mapping-actions button {
+    padding: 0.4rem 0.8rem;
+    min-height: 36px;
+    font-size: 0.85rem;
+  }
+
+  /* アコーディオン (スマホの省スペース用) */
+  .accordion-toggle {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    padding: 0.5rem 0;
+  }
+
+  .accordion-content {
+    transition: max-height 0.3s ease-out;
+    overflow: hidden;
+  }
+
+  .accordion-content.collapsed {
+    max-height: 0;
+    margin-top: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .accordion-content.expanded {
+    max-height: 1000px;
+    margin-top: 1rem;
+    opacity: 1;
+  }
+
+  .caret {
+    border: solid var(--primary);
+    border-width: 0 2px 2px 0;
+    display: inline-block;
+    padding: 3px;
+    transform: rotate(45deg);
+    transition: transform 0.2s;
+  }
+
+  .caret.up {
+    transform: rotate(-135deg);
+  }
+
+  /* 音量・設定の行 */
+  .setting-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .setting-row label {
+    flex-shrink: 0;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+  }
+
+  input[type="range"] {
+    flex-grow: 1;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    outline: none;
+    -webkit-appearance: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--primary);
+    cursor: pointer;
+    box-shadow: 0 0 5px var(--primary-glow);
+  }
+
+  /* ログ表示 */
+  #log {
+    max-height: 120px;
+    overflow-y: auto;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 0.5rem;
+    font-family: monospace;
+    font-size: 0.75rem;
+    color: #34d399;
+  }
+
+  #log div.ng { color: var(--error); }
+  #log div.ok { color: var(--success); }
+
+  /* 新規マッピングフォーム */
+  .mapping-form {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px dashed var(--card-border);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-top: 1rem;
+  }
+
+  @media (min-width: 600px) {
+    .mapping-form {
+      grid-template-columns: 1fr 1fr;
+    }
+    .form-full {
+      grid-column: span 2;
+    }
+  }
+
+  .flex-row {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .flex-row button {
+    flex: 1;
+  }
+
+  .note-warning {
+    background: rgba(239, 68, 68, 0.1);
+    border-left: 3px solid var(--error);
+    padding: 0.75rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+  }
+
+  .note-warning strong {
+    color: var(--text-main);
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Voice Control Center</h1>
+    <a href="./index.html" class="back-link">&larr; Flasher Top</a>
+  </header>
+
+  <!-- iOSなどの非対応環境向けのアラート -->
+  <div id="browserAlert" class="note-warning" style="display: none;">
+    <strong>ブラウザ非互換の警告:</strong> お使いのブラウザは Web Bluetooth または 音声認識 (SpeechRecognition) に対応していません。Android Chrome もしくは PC の Google Chrome で動作させてください。
+  </div>
+
+  <div class="grid-layout">
+    
+    <!-- 左サイドバー: 接続 ＆ 設定 ＆ 赤外線学習 -->
+    <aside class="sidebar-panel">
+      <!-- BLE接続カード -->
+      <section class="card">
+        <h2 class="card-title">
+          1. BLE 接続
+          <span id="connStatus" class="status-badge">未接続</span>
+        </h2>
+        
+        <div class="flex-row" style="margin-bottom: 0.75rem;">
+          <button id="btnConnect" class="btn-primary">接続スキャン</button>
+          <button id="btnDisconnect" disabled>切断</button>
+        </div>
+        
+        <div class="setting-row">
+          <label for="voiceVolume">発声音量</label>
+          <input type="range" id="voiceVolume" min="0" max="100" value="70">
+          <span id="volLabel" style="font-size: 0.85rem; width: 28px; text-align: right;">70</span>
+        </div>
+
+        <div class="accordion-toggle" id="toggleCfg">
+          <span style="font-size: 0.85rem; color: var(--text-muted);">デバイス構成情報</span>
+          <span class="caret" id="cfgCaret"></span>
+        </div>
+        <div class="accordion-content collapsed" id="cfgPanel">
+          <pre id="cfgView" style="font-size: 0.75rem; background: rgba(0,0,0,0.3); padding: 0.5rem; border-radius: 6px; overflow-x: auto; max-width: 100%;">未接続</pre>
+        </div>
+      </section>
+
+      <!-- 赤外線学習カード (オプショナル) -->
+      <section class="card" id="irRxCard">
+        <h2 class="card-title">
+          3. 赤外線学習
+          <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal;">(オプショナル)</span>
+        </h2>
+        <p class="mapping-label" style="margin-bottom: 0.5rem;">※おもちゃを制御する赤外線リモコンの信号をAtomに学習させます。IRモジュールの接続が必要です。</p>
+        
+        <div class="flex-row" style="margin-bottom: 0.75rem;">
+          <button id="btnIrRxStart" disabled>学習開始</button>
+          <button id="btnIrRxStop" disabled>学習停止</button>
+        </div>
+        
+        <div class="form-group">
+          <label>直近受信データ</label>
+          <pre id="irRxView" style="font-size: 0.75rem; background: rgba(0,0,0,0.3); padding: 0.5rem; border-radius: 6px; max-height: 80px; overflow-y: auto;">(未受信)</pre>
+        </div>
+        
+        <div class="form-group">
+          <label for="irPatternName">登録名</label>
+          <div class="flex-row">
+            <input type="text" id="irPatternName" placeholder="例: toy_forward" style="flex-grow: 1;">
+            <button id="btnIrSave" disabled class="btn-accent">保存</button>
+          </div>
+        </div>
+      </section>
+    </aside>
+
+    <!-- 右メインパネル: 音声コントロール ＆ マッピング -->
+    <main class="main-panel">
+      <!-- ボイスコントロールセンター -->
+      <section class="card">
+        <h2 class="card-title">2. 音声対話 &amp; コマンドコントロール</h2>
+        
+        <div class="voice-sphere-container">
+          <div class="voice-sphere" id="voiceSphere"></div>
+          <div class="voice-status-text" id="voiceStatusLabel">STANDBY</div>
+        </div>
+
+        <div style="text-align: center; margin-bottom: 1.25rem;">
+          <button id="btnToggleSpeech" class="btn-primary" style="width: 220px; font-weight: bold; border-radius: 9999px; box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);">
+            音声認識を開始する
+          </button>
+        </div>
+
+        <div class="form-group">
+          <label>対話履歴</label>
+          <div class="chat-container" id="chatFeed">
+            <div class="chat-msg system">「音声認識を開始」ボタンを押して話しかけてください。「テレビをつけて」などの登録音声で赤外線を送信します。</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 音声-IRマッピングエディタ -->
+      <section class="card">
+        <div class="accordion-toggle" id="toggleMapping" style="padding: 0;">
+          <h2 class="card-title" style="margin: 0; border: none; padding: 0;">4. 音声・赤外線マッピング設定</h2>
+          <span class="caret up" id="mappingCaret"></span>
+        </div>
+        
+        <div class="accordion-content expanded" id="mappingPanel">
+          <p class="mapping-label" style="margin-bottom: 0.75rem;">特定の音声トリガー（正規表現対応）でおもちゃに送信する赤外線パターンと、対話の返答をカスタマイズします。</p>
+          
+          <div class="mapping-list" id="mappingList">
+            <!-- 動的に生成 -->
+          </div>
+
+          <!-- 新規登録アコーディオン -->
+          <div class="accordion-toggle" id="toggleAddForm" style="margin-top: 1rem; border-top: 1px dashed var(--card-border); padding-top: 0.75rem;">
+            <span style="font-size: 0.9rem; font-weight: 600; color: var(--primary);">+ 新しい音声アクションを追加</span>
+            <span class="caret" id="addFormCaret"></span>
+          </div>
+          
+          <div class="accordion-content collapsed" id="addFormPanel">
+            <div class="mapping-form">
+              <div class="form-group">
+                <label for="newTrigger">音声トリガー（発話キーワード）</label>
+                <input type="text" id="newTrigger" placeholder="例: テレビ.*つけて|テレビ.*オン">
+              </div>
+              <div class="form-group">
+                <label for="newIrCode">紐づける赤外線コード</label>
+                <select id="newIrCode">
+                  <option value="">(赤外線なし - 対話のみ)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="newResponse">おもちゃの返答（テキスト）</label>
+                <input type="text" id="newResponse" placeholder="例: はーい！テレビをつけますね。">
+              </div>
+              <div class="form-group">
+                <label for="newResponseYomi">おもちゃの返答読み（ひらがな）</label>
+                <input type="text" id="newResponseYomi" placeholder="例: はーい！てれびおつけますね。">
+              </div>
+              <div class="form-full" style="text-align: right; margin-top: 0.5rem;">
+                <button id="btnAddMapping" class="btn-primary" style="min-height: 40px; padding: 0 1.5rem;">マッピングを登録</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- デバッグログ -->
+      <section class="card">
+        <div class="accordion-toggle" id="toggleLog">
+          <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: bold;">System Logs</span>
+          <span class="caret" id="logCaret"></span>
+        </div>
+        <div class="accordion-content collapsed" id="systemLogPanel">
+          <div id="log"></div>
+          <div style="margin-top: 0.5rem; text-align: right;">
+            <button id="btnClearLog" style="min-height: 32px; padding: 0 0.75rem; font-size: 0.8rem;">ログクリア</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+  </div>
+</div>
+
+<script src="voice_control.js"></script>
+</body>
+</html>
