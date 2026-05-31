@@ -56,6 +56,15 @@ const VoiceControl = (() => {
   let isConnected = false;
   let userInitiatedDisconnect = false;
 
+  // ===== 機種別有効 GPIO pin =====
+  const DEVICE_GPIO = {
+    atomlite: [12, 19, 21, 22, 23, 25, 26, 32, 33, 39],
+    atoms3ir: [1, 2, 5, 6, 7, 8, 38, 39]
+  };
+
+  let config = { irTxPin: null };
+  const LOCAL_STORAGE_CONFIG_KEY = 'notif_voice_control_config';
+
   // 音声認識関連
   let recognition = null;
   let isSpeechActive = false; // ユーザーが明示的に開始したか
@@ -195,6 +204,9 @@ const VoiceControl = (() => {
       
       // capability に応じたUIの有効・無効化
       applyCapabilities(cfg.caps || []);
+      
+      // 接続デバイスに合わせたポート選択肢の更新
+      populateSettingsGpioSelects();
     } catch (e) {
       log(`CFGパース失敗: ${e.message}`, 'ng');
       cfg = null;
@@ -566,16 +578,22 @@ const VoiceControl = (() => {
 
       const freq = pattern.freq_khz || 38;
       const headLen = 5;
-      const pl = new Uint8Array(headLen + data.length);
+      const hasPin = (typeof config.irTxPin === 'number') && !isNaN(config.irTxPin) && config.irTxPin !== null;
+      const plLen = headLen + data.length + (hasPin ? 1 : 0);
+      const pl = new Uint8Array(plLen);
       pl[0] = protoId;
       pl[1] = 0; // repeat 0
       pl[2] = freq;
       pl[3] = data.length & 0xff;
       pl[4] = (data.length >> 8) & 0xff;
       pl.set(data, headLen);
+      if (hasPin) {
+        pl[plLen - 1] = config.irTxPin & 0xff;
+      }
 
-      log(`赤外線送信: [${name}] (Proto=${protoId}, Freq=${freq}kHz, Len=${data.length})`);
-      return await sendCommand(CMD_IR_SEND, pl, `IR_SEND(${name})`);
+      const pinLabel = hasPin ? `, Pin=${config.irTxPin}` : '';
+      log(`赤外線送信: [${name}] (Proto=${protoId}, Freq=${freq}kHz, Len=${data.length}${pinLabel})`);
+      return await sendCommand(CMD_IR_SEND, pl, `IR_SEND(${name}${pinLabel})`);
     } catch (e) {
       log(`赤外線データ送信失敗: ${e.message}`, 'ng');
       return false;
@@ -913,6 +931,50 @@ const VoiceControl = (() => {
       .replace(/'/g, '&#039;');
   }
 
+  // ===== 設定管理 =====
+  function loadConfig() {
+    const raw = localStorage.getItem(LOCAL_STORAGE_CONFIG_KEY);
+    if (raw) {
+      try {
+        config = JSON.parse(raw);
+      } catch (e) {
+        log('設定パース失敗。初期化します。', 'ng');
+      }
+    }
+  }
+
+  function saveConfig() {
+    localStorage.setItem(LOCAL_STORAGE_CONFIG_KEY, JSON.stringify(config));
+  }
+
+  function populateSettingsGpioSelects() {
+    const select = $('settingsIrTxPin');
+    if (!select) return;
+    
+    const currentVal = config.irTxPin;
+    select.innerHTML = '<option value="">(デフォルト - ファーム標準)</option>';
+    
+    // デバイス接続済ならそのピンリスト、未接続なら全ピンをマージ
+    let pins = [];
+    if (cfg && cfg.type && DEVICE_GPIO[cfg.type]) {
+      pins = DEVICE_GPIO[cfg.type];
+    } else {
+      // 両方のピンを重複排除してマージ
+      pins = Array.from(new Set([...DEVICE_GPIO.atomlite, ...DEVICE_GPIO.atoms3ir])).sort((a,b) => a - b);
+    }
+    
+    pins.forEach((p) => {
+      const opt = document.createElement('option');
+      opt.value = String(p);
+      opt.textContent = `G${p}`;
+      select.appendChild(opt);
+    });
+    
+    if (currentVal !== null && pins.includes(Number(currentVal))) {
+      select.value = String(currentVal);
+    }
+  }
+
   // ===== 初期化 =====
   function init() {
     // Bluetooth イベント登録
@@ -974,9 +1036,36 @@ const VoiceControl = (() => {
     });
 
     // データロード
+    loadConfig();
     loadMappings();
     refreshIrSelects();
     initSpeechRecognition();
+    populateSettingsGpioSelects();
+
+    // ポート設定ダイアログ制御
+    $('btnOpenSettings').addEventListener('click', () => {
+      populateSettingsGpioSelects();
+      $('settingsModal').classList.add('show');
+    });
+
+    $('btnCancelSettings').addEventListener('click', () => {
+      $('settingsModal').classList.remove('show');
+    });
+
+    $('btnSaveSettings').addEventListener('click', () => {
+      const txVal = $('settingsIrTxPin').value;
+      config.irTxPin = txVal === '' ? null : parseInt(txVal, 10);
+      saveConfig();
+      $('settingsModal').classList.remove('show');
+      log(`ハードウェア設定を保存しました: IR TX=${config.irTxPin !== null ? 'G' + config.irTxPin : 'デフォルト'}`, 'ok');
+    });
+
+    // モーダル外側クリックで閉じる
+    $('settingsModal').addEventListener('click', (e) => {
+      if (e.target === $('settingsModal')) {
+        $('settingsModal').classList.remove('show');
+      }
+    });
 
     log('システム準備完了。Android Chrome または PC Chrome にて BLE 接続を開始してください。');
   }
