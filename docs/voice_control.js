@@ -78,6 +78,106 @@ const VoiceControl = (() => {
   let mappings = [];
   const LOCAL_STORAGE_MAPPINGS_KEY = 'notif_voice_ir_mappings';
 
+  // ===== ローカル AI (Built-in Prompt API) 用ラッパーブリッジ =====
+  const LocalAiBridge = {
+    // 利用可能か判定する
+    async checkAvailability() {
+      // 1. 最新のグローバル LanguageModel クラスによる検出
+      if (typeof LanguageModel !== 'undefined' && typeof LanguageModel.availability === 'function') {
+        try {
+          const status = await LanguageModel.availability();
+          if (status !== 'no') {
+            return { available: true, type: 'LanguageModel (Global)', status };
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      // 2. window.ai.languageModel による検出
+      if (window.ai && window.ai.languageModel) {
+        // 2.a 最新の availability メソッド
+        if (typeof window.ai.languageModel.availability === 'function') {
+          try {
+            const status = await window.ai.languageModel.availability();
+            if (status !== 'no') {
+              return { available: true, type: 'ai.languageModel (Availability)', status };
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
+        // 2.b 以前の capabilities メソッド
+        if (typeof window.ai.languageModel.capabilities === 'function') {
+          try {
+            const caps = await window.ai.languageModel.capabilities();
+            if (caps && caps.available !== 'no') {
+              return { available: true, type: 'ai.languageModel (Capabilities)', status: caps.available };
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
+      }
+
+      // 3. 旧仕様の window.ai.assistant による検出
+      if (window.ai && window.ai.assistant) {
+        if (typeof window.ai.assistant.capabilities === 'function') {
+          try {
+            const caps = await window.ai.assistant.capabilities();
+            if (caps && caps.available !== 'no') {
+              return { available: true, type: 'ai.assistant (Capabilities)', status: caps.available };
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
+      }
+
+      return { available: false, type: 'none', status: 'no' };
+    },
+
+    // セッションを作成する
+    async createSession(options = {}) {
+      const systemPrompt = options.systemPrompt || '';
+
+      // 1. グローバルの LanguageModel が使える場合
+      if (typeof LanguageModel !== 'undefined' && typeof LanguageModel.create === 'function') {
+        try {
+          return await LanguageModel.create({
+            systemPrompt: systemPrompt
+          });
+        } catch (e) {
+          console.warn('LanguageModel.create failed, falling back...', e);
+        }
+      }
+
+      // 2. window.ai.languageModel が使える場合
+      if (window.ai && window.ai.languageModel && typeof window.ai.languageModel.create === 'function') {
+        try {
+          return await window.ai.languageModel.create({
+            systemPrompt: systemPrompt
+          });
+        } catch (e) {
+          console.warn('ai.languageModel.create failed, falling back...', e);
+        }
+      }
+
+      // 3. window.ai.assistant (旧) が使える場合
+      if (window.ai && window.ai.assistant && typeof window.ai.assistant.create === 'function') {
+        try {
+          return await window.ai.assistant.create({
+            systemPrompt: systemPrompt
+          });
+        } catch (e) {
+          console.warn('ai.assistant.create failed...', e);
+        }
+      }
+
+      throw new Error('No local AI creation method available on this browser version');
+    }
+  };
+
   // ===== ユーティリティ =====
   const $ = (id) => document.getElementById(id);
 
@@ -1003,20 +1103,25 @@ const VoiceControl = (() => {
     if (!badge) return;
     const guide = $('localAiGuide');
     
-    if (window.ai && window.ai.languageModel) {
-      try {
-        const capabilities = await ai.languageModel.capabilities();
-        if (capabilities.available !== 'no') {
-          badge.textContent = '対応 / 利用可能 (Gemini Nano)';
-          badge.style.color = 'var(--success)';
-          if (guide) guide.style.display = 'none';
-          log('ローカル AI (Gemini Nano) が利用可能です', 'ok');
-          return;
+    try {
+      const result = await LocalAiBridge.checkAvailability();
+      if (result.available) {
+        let statusJp = '利用可能';
+        if (result.status === 'readily') {
+          statusJp = '即時利用可能';
+        } else if (result.status === 'after-download') {
+          statusJp = 'ダウンロード完了後に利用可能';
         }
-      } catch (e) {
-        // ignore
+        badge.textContent = `対応 / ${statusJp} (Gemini Nano)`;
+        badge.style.color = 'var(--success)';
+        if (guide) guide.style.display = 'none';
+        log(`ローカル AI が利用可能です (検出タイプ: ${result.type}, ステータス: ${result.status})`, 'ok');
+        return;
       }
+    } catch (e) {
+      log(`ローカル AI 検出中にエラーが発生しました: ${e.message}`, 'error');
     }
+    
     badge.textContent = '非対応 / 未検出';
     badge.style.color = 'var(--error)';
     if (guide) guide.style.display = 'block';
@@ -1026,22 +1131,27 @@ const VoiceControl = (() => {
     const prompt = config.systemPrompt || DEFAULT_SYSTEM_PROMPT;
 
     // 1. Chrome Built-in AI (Gemini Nano) を優先使用
-    if (window.ai && window.ai.languageModel) {
-      try {
-        const capabilities = await ai.languageModel.capabilities();
-        if (capabilities.available !== 'no') {
-          log('ローカル AI (Gemini Nano) を起動中...');
-          const session = await ai.languageModel.create({
-            systemPrompt: prompt
-          });
-          const reply = await session.prompt(inputText);
+    try {
+      const check = await LocalAiBridge.checkAvailability();
+      if (check.available) {
+        log('ローカル AI (Gemini Nano) を起動中...');
+        const session = await LocalAiBridge.createSession({
+          systemPrompt: prompt
+        });
+        const reply = await session.prompt(inputText);
+        
+        // 破棄メソッドの安全な呼び出し (destroy または close)
+        if (typeof session.destroy === 'function') {
           session.destroy();
-          log(`ローカル AI 応答: 「${reply.trim()}」`, 'ok');
-          return reply.trim();
+        } else if (typeof session.close === 'function') {
+          session.close();
         }
-      } catch (e) {
-        log(`ローカル AI 起動失敗、フォールバックします: ${e.message}`);
+        
+        log(`ローカル AI 応答: 「${reply.trim()}」`, 'ok');
+        return reply.trim();
       }
+    } catch (e) {
+      log(`ローカル AI 起動・実行失敗、フォールバックします: ${e.message}`);
     }
 
     // 2. 外部 Gemini API をフォールバックとして使用
