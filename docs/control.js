@@ -518,10 +518,7 @@ const NotifControl = (() => {
     try {
       log('requestDevice (service filter) ...');
       device = await navigator.bluetooth.requestDevice({
-        filters: [
-          { namePrefix: 'notif_atom' },
-          { namePrefix: 'notif_atoms3' }
-        ],
+        acceptAllDevices: true,
         optionalServices: [SERVICE_UUID]
       });
       log(`device 選択: name="${device.name || '(no name)'}" id=${device.id}`, 'ok');

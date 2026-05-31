@@ -138,10 +138,7 @@ const VoiceControl = (() => {
     try {
       log('デバイススキャン開始...');
       device = await navigator.bluetooth.requestDevice({
-        filters: [
-          { namePrefix: 'notif_atom' },
-          { namePrefix: 'notif_atoms3' }
-        ],
+        acceptAllDevices: true,
         optionalServices: [SERVICE_UUID]
       });
       log(`デバイス選択: ${device.name || '(no name)'}`, 'ok');
