@@ -654,7 +654,10 @@ const VoiceControl = (() => {
   function cleanYomiText(text) {
     // 読点「、」やスペースは一時的に保持し、英数字・ひらがな・長音「ー」・スペースのみ残す
     let clean = text.replace(/[。！？」]/g, ' ');
-    clean = clean.replace(/は/g, 'お'); // 発音として「は(wa)」を「お(o)」にする簡易調整
+    
+    // 挨拶の中の助詞「は」を「わ」に変換する安全な対応のみ実施
+    clean = clean.replace(/こんにちは/g, 'こんにちわ');
+    clean = clean.replace(/こんばんは/g, 'こんばんわ');
     
     // カタカナ・ひらがな変換後の残存漢字を排除し、ひらがな/数字/アルファベット/スペースのみにする
     // ひらがな範囲: \u3040-\u309F、長音: ー
