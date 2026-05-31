@@ -62,7 +62,7 @@ const VoiceControl = (() => {
     atoms3ir: [1, 2, 5, 6, 7, 8, 38, 39]
   };
 
-  let config = { irTxPin: null, geminiKey: null };
+  let config = { irTxPin: null, geminiKey: null, systemPrompt: null };
   const LOCAL_STORAGE_CONFIG_KEY = 'notif_voice_control_config';
 
   // 音声認識関連
@@ -932,6 +932,9 @@ const VoiceControl = (() => {
       .replace(/'/g, '&#039;');
   }
 
+  // ===== デフォルトのAIシステムプロンプト =====
+  const DEFAULT_SYSTEM_PROMPT = "あなたの名前は「のんきなの」ちゃんです。あなたはのんびり屋でおっとりしたおもちゃのロボットです。ユーザーの発言に対して、必ず30文字以内の非常に短いメッセージで、温かくのんびりとしたフレンドリーな口調（語尾に「〜なの」や「〜の」を多用する）で応答してください。また、ロボットが正しく日本語で発音できるように、漢字は一切使わず、必ず【すべてひらがな、カタカナ、スペース】のみで出力してください。";
+
   // ===== 設定管理 =====
   function loadConfig() {
     const raw = localStorage.getItem(LOCAL_STORAGE_CONFIG_KEY);
@@ -939,9 +942,12 @@ const VoiceControl = (() => {
       try {
         config = JSON.parse(raw);
         config.geminiKey = config.geminiKey || null;
+        config.systemPrompt = config.systemPrompt || DEFAULT_SYSTEM_PROMPT;
       } catch (e) {
         log('設定パース失敗。初期化します。', 'ng');
       }
+    } else {
+      config.systemPrompt = DEFAULT_SYSTEM_PROMPT;
     }
   }
 
@@ -982,12 +988,15 @@ const VoiceControl = (() => {
       keyInput.value = config.geminiKey || '';
     }
 
+    // システムプロンプトの復元
+    const promptInput = $('settingsSystemPrompt');
+    if (promptInput) {
+      promptInput.value = config.systemPrompt || DEFAULT_SYSTEM_PROMPT;
+    }
+
     // ローカルAIステータスチェック
     checkLocalAiStatus();
   }
-
-  // ===== ローカル AI ＆ Gemini API 自然対話エンジン =====
-  const SYSTEM_PROMPT = "あなたの名前は「のんきなの」ちゃんです。あなたはのんびり屋でおっとりしたおもちゃのロボットです。ユーザーの発言に対して、必ず30文字以内の非常に短いメッセージで、温かくのんびりとしたフレンドリーな口調（語尾に「〜なの」や「〜の」を多用する）で応答してください。また、ロボットが正しく日本語で発音できるように、漢字は一切使わず、必ず【すべてひらがな、カタカナ、スペース】のみで出力してください。";
 
   async function checkLocalAiStatus() {
     const badge = $('localAiStatus');
@@ -1011,6 +1020,8 @@ const VoiceControl = (() => {
   }
 
   async function generateAiResponse(inputText) {
+    const prompt = config.systemPrompt || DEFAULT_SYSTEM_PROMPT;
+
     // 1. Chrome Built-in AI (Gemini Nano) を優先使用
     if (window.ai && window.ai.languageModel) {
       try {
@@ -1018,7 +1029,7 @@ const VoiceControl = (() => {
         if (capabilities.available !== 'no') {
           log('ローカル AI (Gemini Nano) を起動中...');
           const session = await ai.languageModel.create({
-            systemPrompt: SYSTEM_PROMPT
+            systemPrompt: prompt
           });
           const reply = await session.prompt(inputText);
           session.destroy();
@@ -1038,7 +1049,7 @@ const VoiceControl = (() => {
         contents: [
           {
             role: "user",
-            parts: [{ text: `${SYSTEM_PROMPT}\n\nユーザーの発言: "${inputText}"` }]
+            parts: [{ text: `${prompt}\n\nユーザーの発言: "${inputText}"` }]
           }
         ],
         generationConfig: {
@@ -1146,9 +1157,11 @@ const VoiceControl = (() => {
     $('btnSaveSettings').addEventListener('click', () => {
       const txVal = $('settingsIrTxPin').value;
       const keyVal = $('settingsGeminiKey').value.trim();
+      const promptVal = $('settingsSystemPrompt').value.trim();
       
       config.irTxPin = txVal === '' ? null : parseInt(txVal, 10);
       config.geminiKey = keyVal === '' ? null : keyVal;
+      config.systemPrompt = promptVal === '' ? DEFAULT_SYSTEM_PROMPT : promptVal;
       
       saveConfig();
       $('settingsModal').classList.remove('show');
