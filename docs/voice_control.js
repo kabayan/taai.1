@@ -148,7 +148,14 @@ const VoiceControl = (() => {
         // 2. 最新の Prompt API (Chrome 131以降) 仕様用オプション
         initialPrompts: systemPrompt ? [
           { role: 'system', content: systemPrompt }
-        ] : []
+        ] : [],
+        // 言語設定とシステムプロンプトの整合性を確保するためのヒント設定
+        expectedInputs: [
+          { type: 'text', languages: ['ja'] }
+        ],
+        expectedOutputs: [
+          { type: 'text', languages: ['ja'] }
+        ]
       };
 
       // 1. グローバルの LanguageModel が使える場合
@@ -1140,7 +1147,8 @@ const VoiceControl = (() => {
     try {
       const check = await LocalAiBridge.checkAvailability();
       if (check.available) {
-        log('ローカル AI (Gemini Nano) を起動中...');
+        log(`ローカル AI (Gemini Nano) を起動中... (プロンプトサイズ: ${prompt.length} 文字)`);
+        console.log('Sending system prompt to local AI:', prompt);
         const session = await LocalAiBridge.createSession({
           systemPrompt: prompt
         });
