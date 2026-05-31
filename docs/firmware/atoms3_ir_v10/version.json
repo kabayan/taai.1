@@ -1,0 +1,16 @@
+{
+  "version": "10.6.0",
+  "build_number": "05300301",
+  "built_at": "2026-05-29T18:02:04Z",
+  "target": "atoms3-ir",
+  "chip": "esp32s3",
+  "flash_size": "8MB",
+  "flash_freq": "80m",
+  "flash_mode": "dio",
+  "baud": 1500000,
+  "files": [
+    { "name": "bootloader.bin", "address": "0x0" },
+    { "name": "partitions.bin", "address": "0x8000" },
+    { "name": "firmware.bin",   "address": "0x10000" }
+  ]
+}

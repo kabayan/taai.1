@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>notif Web Flasher v10.6.0</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; padding: 0; line-height: 1.6; }
+  .container { max-width: 720px; margin: 1rem auto; padding: 0 1rem; }
+  h1 { font-size: 1.4rem; margin-bottom: 0.3rem; }
+  h2 { font-size: 1.05rem; margin-top: 1.4rem; }
+  .lead { color: #444; }
+  .cta { display: inline-block; padding: 0.6rem 1.2rem; background: #06c; color: #fff; text-decoration: none; border-radius: 4px; font-weight: bold; }
+  .cta:hover { background: #048; }
+  ul li { margin: 0.2rem 0; }
+  code { background: #f5f5f5; padding: 0 0.3rem; border-radius: 3px; font-size: 0.92em; }
+  a { color: #06c; }
+  .note { color: #666; font-size: 0.9rem; }
+  table.spec { font-size: 0.9rem; border-collapse: collapse; margin: 0.3rem 0; }
+  table.spec th, table.spec td { border: 1px solid #ccc; padding: 0.3rem 0.6rem; text-align: left; }
+  hr { border: 0; border-top: 1px solid #eee; margin: 1.5rem 0; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>notif Web Flasher <small style="font-size: 0.6em; color: #888;">v10.6.0</small></h1>
+  <p class="lead">M5Stack <strong>AtomS3</strong> / <strong>Atom Lite</strong> (標準 / Voice 各バリアント) に notif ファームウェアをブラウザだけで書き込み、 書込後はそのままブラウザから BLE 制御できるツール。 PC への esptool / Arduino IDE / PlatformIO のインストール不要。</p>
+
+  <p>
+    <a href="./flash.html" class="cta">ファーム書き込み &rarr;</a>
+    <a href="./control.html" class="cta" style="background: #060;">Web BLE 制御 &rarr;</a>
+  </p>
+  <p class="note">書込 → 制御を 1 ブラウザで完結。 Web Bluetooth は Chromium 系のみ対応。</p>
+
+  <h2>使い方</h2>
+  <ol>
+    <li>対象機種 (AtomS3 / Atom Lite、 標準 or Voice) を USB-C ケーブルで PC に接続</li>
+    <li>上のボタンから書き込みページを開く</li>
+    <li>「機種選択」で 機種 (AtomS3 / Atom Lite) × バリアント (標準 / Voice) を選ぶ</li>
+    <li>「USB シリアル接続」 → ポート選択 → 「ファーム書き込み開始」</li>
+  </ol>
+
+  <h2>対象機種</h2>
+  <table class="spec">
+    <tr><th>機種</th><th>SoC / USB</th><th>ファーム機能</th><th>flash</th></tr>
+    <tr>
+      <td>M5Stack AtomS3 + AtomS3-IR</td>
+      <td>ESP32-S3 / 内蔵 USB CDC</td>
+      <td>BLE + LCD 128×128 + IR + Stepper + GPIO</td>
+      <td>8MB / huge_app.csv</td>
+    </tr>
+    <tr>
+      <td>M5Stack Atom Lite</td>
+      <td>ESP32-PICO-D4 / 外付け USB-Serial chip (FTDI / CH9102 / CH340 / CP210x)</td>
+      <td>BLE + Neopixel LED + IR + GPIO (LCD なし)</td>
+      <td>4MB / huge_app.csv</td>
+    </tr>
+    <tr>
+      <td>M5Stack AtomS3 + Atomic Voice Base</td>
+      <td>ESP32-S3 / 内蔵 USB CDC</td>
+      <td>BLE + LCD 128×128 + IR + <strong>Voice</strong> + GPIO</td>
+      <td>8MB / factory 3MB + LittleFS 4.94MB</td>
+    </tr>
+    <tr>
+      <td>M5Stack Atom Lite + Atomic Voice Base</td>
+      <td>ESP32-PICO-D4 / 外付け USB-Serial chip</td>
+      <td>BLE + Neopixel LED + IR + <strong>Voice</strong> + GPIO (LCD なし)</td>
+      <td>4MB / factory 1.6MB + LittleFS 2.3MB</td>
+    </tr>
+  </table>
+
+  <h2>必要環境</h2>
+  <ul>
+    <li><strong>ブラウザ</strong>: PC 用 Chrome / Edge (デスクトップ版)。 スマホ / タブレット / iPad Chrome は WebSerial 未対応</li>
+    <li><strong>ケーブル</strong>: AtomS3-IR の USB-C ポートに接続できるケーブル (データ通信対応のもの)</li>
+    <li><strong>OS</strong>: Windows / macOS / Linux。 Linux は <code>dialout</code> グループ等の USB アクセス権限が必要なことあり</li>
+  </ul>
+
+  <h2>動作原理</h2>
+  <p>本ページは <a href="https://github.com/espressif/esptool-js" target="_blank">esptool-js</a> (Espressif 公式 JS 版 esptool) + <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API" target="_blank">WebSerial API</a> を使い、 ブラウザから直接 ESP32-S3 のブートローダーに接続して書き込みを行う。 サーバー通信はリリースアセット (.bin) の fetch のみで、 書き込み処理自体は全てブラウザ内で完結する。</p>
+
+</div>
+
+<footer style="margin-top: 2rem; padding: 0.5rem 0; border-top: 1px solid #ddd; color: #888; font-size: 0.75rem; text-align: center;">
+  page source <code>v10.6.0</code>
+</footer>
+</body>
+</html>

@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ファーム書き込み v10.6.0 — notif (AtomS3-IR / Atom Lite WebSerial Flasher)</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; padding: 0; }
+  .container { max-width: 720px; margin: 1rem auto; padding: 0 1rem; }
+  h1 { font-size: 1.2rem; }
+  fieldset { margin-bottom: 1rem; }
+  button { padding: 0.5rem 1rem; font-size: 1rem; margin-right: 0.5rem; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .row { margin: 0.4rem 0; }
+  .note { color: #666; font-size: 0.85rem; margin: 0.3rem 0; }
+  .warn { color: #b00; font-weight: bold; }
+  #log { font-family: monospace; white-space: pre-wrap; background: #f0f0f0; padding: 0.5rem; min-height: 8rem; max-height: 22rem; overflow: auto; font-size: 0.85rem; }
+  progress { width: 100%; height: 1.2rem; }
+  .progressRow { margin: 0.5rem 0; }
+  table.spec { font-size: 0.85rem; border-collapse: collapse; margin: 0.3rem 0; }
+  table.spec th, table.spec td { border: 1px solid #ccc; padding: 0.2rem 0.5rem; text-align: left; }
+  a { color: #06c; }
+  code { background: #f5f5f5; padding: 0 0.3rem; border-radius: 3px; }
+  label.target-label { display: inline-block; margin-right: 1.2rem; padding: 0.2rem 0; }
+</style>
+</head>
+<body>
+<div class="container">
+  <p><a href="./index.html">&larr; notif Web Flasher トップへ戻る</a></p>
+  <h1>ファーム書き込み (AtomS3-IR / Atom Lite WebSerial Flasher) <small style="font-size: 0.7em; color: #888;">v10.6.0</small></h1>
+
+  <fieldset id="targetSelect">
+    <legend>0. 機種選択</legend>
+    <div class="row">
+      <strong>機種:</strong>
+      <label class="target-label"><input type="radio" name="device" value="atoms3" checked> AtomS3 (ESP32-S3, 内蔵 USB CDC)</label>
+      <label class="target-label"><input type="radio" name="device" value="atomlite"> Atom Lite (ESP32 + 外付け USB-Serial chip)</label>
+    </div>
+    <div class="row">
+      <strong>バリアント:</strong>
+      <label class="target-label"><input type="radio" name="variant" value="standard" checked> 標準 (IR / RGB)</label>
+      <label class="target-label"><input type="radio" name="variant" value="voice"> Voice (Atomic Echo Base + LittleFS 音声)</label>
+    </div>
+    <div class="row note">機種 × バリアントの組合せで USB filter / ファームバイナリ / flash 設定が変わるため、 先に選択する。 切替後は接続からやり直し。</div>
+  </fieldset>
+
+  <fieldset>
+    <legend>動作要件</legend>
+    <ul>
+      <li>PC の <strong>Chrome / Edge</strong> (デスクトップ版、 スマホ / タブレットは未対応)</li>
+      <li>選択した機種を USB-C ケーブルで PC に接続</li>
+      <li>Linux の場合は USB ポート権限 (<code>dialout</code> グループ等) が必要なことがある</li>
+    </ul>
+    <p class="note">本ページは <a href="https://github.com/espressif/esptool-js" target="_blank">esptool-js</a> (Espressif 公式 JS 版 esptool) + WebSerial API で動作する。 サーバー通信なし、 全処理はブラウザ内で完結する。</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>書き込み対象</legend>
+    <table class="spec" id="targetSpecTable">
+      <!-- renderTargetSpec() が動的更新 -->
+    </table>
+    <details>
+      <summary>flash レイアウト (offset → file)</summary>
+      <table class="spec" id="flashLayoutTable">
+        <!-- renderTargetSpec() が動的更新 -->
+      </table>
+      <p class="note" id="flashLayoutNote"></p>
+    </details>
+    <div id="releaseInfo" class="row note">ファーム情報を取得中…</div>
+  </fieldset>
+
+  <fieldset>
+    <legend>1. 接続</legend>
+    <div class="row">
+      <button id="btnConnect">USB シリアル接続</button>
+      <button id="btnDisconnect" disabled>切断</button>
+    </div>
+    <div class="row note" id="connectNote"><!-- renderTargetSpec() が動的更新 --></div>
+  </fieldset>
+
+  <fieldset>
+    <legend>2. 書き込み</legend>
+    <div class="row">
+      <button id="btnWrite" disabled>ファーム書き込み開始</button>
+    </div>
+    <div class="progressRow">
+      <label>進捗: </label>
+      <progress id="progress" value="0" max="100"></progress>
+      <span id="progressText">未開始</span>
+    </div>
+    <div class="row note warn">書き込み中はケーブルを抜かない。 書き込みは 2-3 分かかる。</div>
+  </fieldset>
+
+  <fieldset>
+    <legend>ログ</legend>
+    <div id="log"></div>
+  </fieldset>
+</div>
+
+<script type="module">
+// esm.sh は ESM 変換時に stub flasher 内の base64 を corrupt するため、 公式 bundle.js (Rollup 済み ESM、 deps 同梱) を直接読む
+import { ESPLoader, Transport } from "https://unpkg.com/esptool-js@0.5.4/bundle.js";
+
+// 機種選択 (atoms3-ir / atomlite) で USB filter / fw dir / flash 仕様を切替。
+// flash 仕様 (chip / flash_size / flash_freq / flash_mode / files[].address) は version.json から取得し、
+// 旧形式 version.json (chip 等なし) では下記 fallback_flash と flash_layout_rows を使う。
+const TARGETS = {
+  "atoms3-ir": {
+    label: "AtomS3-IR",
+    chip_expected: "ESP32-S3",
+    fw_dir: "./firmware/atoms3_ir_v10",
+    usb_cdc_reset_caveat: true, // ESP32-S3 内蔵 USB CDC: ブラウザ hard reset 不達
+    usb_filters: [
+      { usbVendorId: 0x303a }, // Espressif (ESP32-S3 native USB)
+    ],
+    fallback_flash: { flashSize: "8MB", flashFreq: "80m", flashMode: "dio" },
+    spec_rows: [
+      ["機種", "M5Stack AtomS3 + AtomS3-IR (ESP32-S3)"],
+      ["ファーム", "<code>notif atoms3-ir</code> (BLE + LCD 128×128 + IR + Stepper + GPIO)"],
+      ["flash", "8MB / mode: dio / freq: 80MHz"],
+      ["partition", "huge_app.csv (app slot 約 3MB、 OTA なし)"],
+    ],
+    flash_layout_rows: [
+      ["0x0", "bootloader.bin", "~17 KB"],
+      ["0x8000", "partitions.bin", "~3 KB"],
+      ["0x10000", "firmware.bin (notif atoms3-ir)", "~2.9 MB"],
+    ],
+    flash_layout_note: "ESP32-S3 native USB のため bootloader は 0x0 (ESP32 オリジナルの 0x1000 ではない)。 boot_app0.bin は OTA 用なので huge_app.csv 構成では不要。",
+    connect_note: "AtomS3-IR が繋がっているポート (Linux: <code>/dev/ttyACM*</code>, mac: <code>/dev/cu.usbmodem*</code>, Windows: <code>COM*</code>) を選ぶ。 picker は ESP32-S3 内蔵 USB の Vendor ID <code>0x303a</code> (Espressif) に絞り込み済み。 一覧に AtomS3-IR が出ないときはブラウザコンソールで <code>navigator.serial.requestPort()</code> を引数なしで叩いて確認できる。",
+  },
+  "atomlite": {
+    label: "Atom Lite",
+    chip_expected: "ESP32",
+    fw_dir: "./firmware/atomlite_v10",
+    usb_cdc_reset_caveat: false, // ESP32 + 外付け USB-Serial chip: RTS hard reset 有効
+    usb_filters: [
+      { usbVendorId: 0x0403, usbProductId: 0x6001 }, // FTDI FT232R (現行 atomlite 多数派)
+      { usbVendorId: 0x1a86, usbProductId: 0x55d4 }, // WCH CH9102 (新ロット)
+      { usbVendorId: 0x1a86, usbProductId: 0x7523 }, // WCH CH340 (旧 M5 互換)
+      { usbVendorId: 0x10c4, usbProductId: 0xea60 }, // SiLabs CP210x
+    ],
+    fallback_flash: { flashSize: "4MB", flashFreq: "40m", flashMode: "dio" },
+    spec_rows: [
+      ["機種", "M5Stack Atom Lite (ESP32-PICO-D4 + 外付け USB-Serial chip)"],
+      ["ファーム", "<code>notif atomlite</code> (BLE + Neopixel LED + IR + GPIO、 LCD なし)"],
+      ["flash", "4MB / mode: dio / freq: 40MHz"],
+      ["partition", "huge_app.csv (app slot 約 3MB、 OTA なし)"],
+    ],
+    flash_layout_rows: [
+      ["0x1000", "bootloader.bin", "~17 KB"],
+      ["0x8000", "partitions.bin", "~3 KB"],
+      ["0xe000", "boot_app0.bin (OTA fallback)", "8 KB"],
+      ["0x10000", "firmware.bin (notif atomlite)", "~1.4 MB"],
+    ],
+    flash_layout_note: "ESP32 オリジナル仕様: bootloader は 0x1000、 boot_app0.bin (OTA fallback、 PIO framework 同梱) を 0xe000 に置く。",
+    connect_note: "Atom Lite が繋がっているポート (Linux: <code>/dev/ttyUSB*</code>, mac: <code>/dev/cu.usbserial-*</code>, Windows: <code>COM*</code>) を選ぶ。 picker は FTDI / CH9102 / CH340 / CP210x の 4 種 Vendor ID に絞り込み。 新ロットで未対応 VID の場合はブラウザコンソールで <code>navigator.serial.requestPort()</code> を引数なしで叩く。",
+  },
+  // voice 機種 (Atomic Voice Base + LittleFS 音声 image)。 littlefs.bin を partition offset に追加書込
+  "atoms3-voice": {
+    label: "AtomS3-Voice",
+    chip_expected: "ESP32-S3",
+    fw_dir: "./firmware/atoms3_voice_v10",
+    usb_cdc_reset_caveat: true, // ESP32-S3 内蔵 USB CDC: ブラウザ hard reset 不達
+    usb_filters: [
+      { usbVendorId: 0x303a }, // Espressif (ESP32-S3 native USB)
+    ],
+    fallback_flash: { flashSize: "8MB", flashFreq: "80m", flashMode: "dio" },
+    spec_rows: [
+      ["機種", "M5Stack AtomS3 + Atomic Voice Base A149 (ESP32-S3)"],
+      ["ファーム", "<code>notif atoms3-voice</code> (BLE + LCD 128×128 + IR + Voice + GPIO)"],
+      ["flash", "8MB / mode: dio / freq: 80MHz"],
+      ["partition", "partitions_atoms3_voice.csv (factory 3MB + LittleFS 4.94MB、 OTA なし)"],
+    ],
+    flash_layout_rows: [
+      ["0x0", "bootloader.bin", "~15 KB"],
+      ["0x8000", "partitions.bin", "~3 KB"],
+      ["0x10000", "firmware.bin (notif atoms3-voice)", "~2.95 MB"],
+      ["0x310000", "littlefs.bin (音声 WAV 145 文字)", "~4.94 MB"],
+    ],
+    flash_layout_note: "ESP32-S3 native USB のため bootloader は 0x0。 voice 機種は LittleFS partition (@0x310000) に音声 WAV を同梱するため littlefs.bin も書き込む (合計 ~7.9MB、 書込に数分)。",
+    connect_note: "AtomS3-Voice が繋がっているポート (Linux: <code>/dev/ttyACM*</code>, mac: <code>/dev/cu.usbmodem*</code>, Windows: <code>COM*</code>) を選ぶ。 picker は ESP32-S3 内蔵 USB の Vendor ID <code>0x303a</code> (Espressif) に絞り込み済み。",
+  },
+  "atomlite-voice": {
+    label: "Atom Lite-Voice",
+    chip_expected: "ESP32",
+    fw_dir: "./firmware/atomlite_voice_v10",
+    usb_cdc_reset_caveat: false, // ESP32 + 外付け USB-Serial chip: RTS hard reset 有効
+    usb_filters: [
+      { usbVendorId: 0x0403, usbProductId: 0x6001 }, // FTDI FT232R
+      { usbVendorId: 0x1a86, usbProductId: 0x55d4 }, // WCH CH9102
+      { usbVendorId: 0x1a86, usbProductId: 0x7523 }, // WCH CH340
+      { usbVendorId: 0x10c4, usbProductId: 0xea60 }, // SiLabs CP210x
+    ],
+    fallback_flash: { flashSize: "4MB", flashFreq: "40m", flashMode: "dio" },
+    spec_rows: [
+      ["機種", "M5Stack Atom Lite + Atomic Voice Base A149 (ESP32 + 外付け USB-Serial chip)"],
+      ["ファーム", "<code>notif atomlite-voice</code> (BLE + RGB LED + IR + Voice + GPIO、 LCD なし)"],
+      ["flash", "4MB / mode: dio / freq: 40MHz"],
+      ["partition", "partitions_atomlite_voice.csv (factory 1.6MB + LittleFS 2.3MB、 OTA なし)"],
+    ],
+    flash_layout_rows: [
+      ["0x1000", "bootloader.bin", "~17 KB"],
+      ["0x8000", "partitions.bin", "~3 KB"],
+      ["0xe000", "boot_app0.bin (OTA fallback)", "8 KB"],
+      ["0x10000", "firmware.bin (notif atomlite-voice)", "~1.45 MB"],
+      ["0x1b0000", "littlefs.bin (音声 WAV 145 文字)", "~2.4 MB"],
+    ],
+    flash_layout_note: "ESP32 オリジナル仕様: bootloader は 0x1000、 boot_app0.bin を 0xe000 に置く。 voice 機種は LittleFS partition (@0x1b0000) に音声 WAV を同梱するため littlefs.bin も書き込む (合計 ~3.9MB)。",
+    connect_note: "Atom Lite-Voice が繋がっているポート (Linux: <code>/dev/ttyUSB*</code>, mac: <code>/dev/cu.usbserial-*</code>, Windows: <code>COM*</code>) を選ぶ。 picker は FTDI / CH9102 / CH340 / CP210x の 4 種 Vendor ID に絞り込み。 新ロットで未対応 VID の場合はブラウザコンソールで <code>navigator.serial.requestPort()</code> を引数なしで叩く。",
+  },
+};
+
+let currentTarget = "atoms3-ir";
+let transport = null;
+let esploader = null;
+let fwFiles = null;     // [{ name, address, url }]
+let fwInfo = null;      // version.json 全体
+let fwFlashSpec = null; // { flashSize, flashFreq, flashMode }
+
+const btnConnect = document.getElementById("btnConnect");
+const btnDisconnect = document.getElementById("btnDisconnect");
+const btnWrite = document.getElementById("btnWrite");
+const logEl = document.getElementById("log");
+const progressEl = document.getElementById("progress");
+const progressText = document.getElementById("progressText");
+const releaseInfoEl = document.getElementById("releaseInfo");
+const targetSpecTable = document.getElementById("targetSpecTable");
+const flashLayoutTable = document.getElementById("flashLayoutTable");
+const flashLayoutNote = document.getElementById("flashLayoutNote");
+const connectNote = document.getElementById("connectNote");
+
+const term = {
+  clean() { logEl.textContent = ""; },
+  writeLine(data) { logEl.textContent += data + "\n"; logEl.scrollTop = logEl.scrollHeight; },
+  write(data) { logEl.textContent += data; logEl.scrollTop = logEl.scrollHeight; },
+};
+
+function log(msg) {
+  const t = new Date().toLocaleTimeString();
+  term.writeLine(`[${t}] ${msg}`);
+}
+
+// 機種 (device) × バリアント (variant) の 2 軸を target key に合成
+function getTarget() {
+  const dev = (document.querySelector('input[name="device"]:checked') || {}).value || "atoms3";
+  const variant = (document.querySelector('input[name="variant"]:checked') || {}).value || "standard";
+  if (dev === "atoms3") return variant === "voice" ? "atoms3-voice" : "atoms3-ir";
+  return variant === "voice" ? "atomlite-voice" : "atomlite";
+}
+
+function renderTargetSpec(target) {
+  const cfg = TARGETS[target];
+  targetSpecTable.innerHTML = cfg.spec_rows
+    .map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join("");
+  flashLayoutTable.innerHTML = `<tr><th>offset</th><th>file</th><th>size (approx)</th></tr>` +
+    cfg.flash_layout_rows.map(([a, f, s]) => `<tr><td>${a}</td><td>${f}</td><td>${s}</td></tr>`).join("");
+  flashLayoutNote.textContent = cfg.flash_layout_note;
+  connectNote.innerHTML = cfg.connect_note;
+}
+
+async function fetchBinaryString(url) {
+  const resp = await fetch(url, { cache: "no-cache" });
+  if (!resp.ok) throw new Error(`fetch failed ${resp.status}: ${url}`);
+  const buf = new Uint8Array(await resp.arrayBuffer());
+  let s = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < buf.length; i += chunk) {
+    s += String.fromCharCode.apply(null, buf.subarray(i, i + chunk));
+  }
+  return s;
+}
+
+async function loadFirmwareInfo() {
+  const target = getTarget();
+  currentTarget = target;
+  const cfg = TARGETS[target];
+  const FW_VERSION_JSON = `${cfg.fw_dir}/version.json`;
+  try {
+    const resp = await fetch(FW_VERSION_JSON, { cache: "no-cache" });
+    if (!resp.ok) throw new Error(`version.json fetch failed: ${resp.status}`);
+    fwInfo = await resp.json();
+    // version.json.files が address (hex string) を持つ場合 (拡張形)
+    // 旧形式 (files なし) では TARGETS 側の flash_layout_rows を fallback で使う。
+    const filesSpec = (fwInfo.files && Array.isArray(fwInfo.files) && fwInfo.files.length > 0)
+      ? fwInfo.files
+      : cfg.flash_layout_rows.map(([a, f]) => ({ name: f.split(" ")[0], address: a }));
+    fwFiles = filesSpec.map(f => ({
+      name: f.name,
+      address: typeof f.address === "string" ? parseInt(f.address, 16) : f.address,
+      url: `${cfg.fw_dir}/${f.name}`,
+    }));
+    fwFlashSpec = {
+      flashSize: fwInfo.flash_size || cfg.fallback_flash.flashSize,
+      flashFreq: fwInfo.flash_freq || cfg.fallback_flash.flashFreq,
+      flashMode: fwInfo.flash_mode || cfg.fallback_flash.flashMode,
+    };
+    const built = fwInfo.built_at ? ` (built ${fwInfo.built_at})` : "";
+    releaseInfoEl.innerHTML = `ファーム (${cfg.label}): <code>v${fwInfo.version}</code> build <code>${fwInfo.build_number || "?"}</code>${built}。 ${fwFiles.length} ファイル配信、 flash <code>${fwFlashSpec.flashSize}/${fwFlashSpec.flashFreq}/${fwFlashSpec.flashMode}</code>。`;
+    log(`[${target}] ファーム v${fwInfo.version} (build ${fwInfo.build_number || "?"}) 準備完了。`);
+  } catch (e) {
+    fwFiles = null;
+    fwInfo = null;
+    fwFlashSpec = null;
+    releaseInfoEl.innerHTML = `<span class="warn">ファーム情報取得失敗 (${cfg.label}): ${e && e.message ? e.message : e}</span>`;
+    log(`[${target}] ファーム情報取得失敗: ${e && e.message ? e.message : e}`);
+  }
+  btnWrite.disabled = !esploader || !fwFiles;
+}
+
+async function onTargetChange() {
+  const target = getTarget();
+  renderTargetSpec(target);
+  if (transport) {
+    log(`機種を ${TARGETS[target].label} に変更。 既存接続を切断します。`);
+    try { await transport.disconnect(); } catch (_) {}
+    transport = null;
+    esploader = null;
+    btnConnect.disabled = false;
+    btnDisconnect.disabled = true;
+    btnWrite.disabled = true;
+  }
+  await loadFirmwareInfo();
+}
+
+document.querySelectorAll('input[name="device"], input[name="variant"]').forEach(el => {
+  el.addEventListener("change", onTargetChange);
+});
+
+if (!("serial" in navigator)) {
+  log("ERROR: このブラウザは WebSerial 未対応です。 Chrome / Edge (デスクトップ) を使ってください。");
+  btnConnect.disabled = true;
+}
+
+btnConnect.addEventListener("click", async () => {
+  try {
+    btnConnect.disabled = true;
+    const target = currentTarget;
+    const cfg = TARGETS[target];
+    log(`[${target}] USB ポート選択を要求…`);
+    const port = await navigator.serial.requestPort({ filters: cfg.usb_filters });
+    transport = new Transport(port, true);
+    log("ESPLoader 起動 → チップ識別中…");
+    // 接続/reset は安全な 115200 (romBaudrate)、 flash 本体は 921600 に昇圧して高速化。
+    //   従来は 115200 固定で、 非 voice の小さい fw では許容できたが voice 機種は littlefs
+    //   (atomlite-voice 2.4MB / atoms3-voice 4.94MB) が加わり 115200 では激遅になるため。
+    //   921600 は WebSerial + FTDI/USB-CDC で広く実績のある値 (ESP Web Tools 既定)。
+    //   esptool-js は main() 内で romBaudrate → baudrate へ自動昇圧する。
+    const FLASH_BAUD = 921600;
+    esploader = new ESPLoader({
+      transport,
+      baudrate: FLASH_BAUD,
+      romBaudrate: 115200,
+      terminal: term,
+    });
+    const chip = await esploader.main();
+    log(`flash baudrate: 接続 115200 → ${FLASH_BAUD} に昇圧`);
+    log(`接続成功: chip = ${chip}`);
+    // 機種選択と chip 識別の整合チェック
+    if (cfg.chip_expected && !String(chip).toUpperCase().includes(cfg.chip_expected.toUpperCase())) {
+      log(`⚠ 機種選択 (${cfg.label} = ${cfg.chip_expected} 想定) と検出された chip (${chip}) が不一致。 機種選択を確認してください。`);
+    }
+    btnDisconnect.disabled = false;
+    btnWrite.disabled = !fwFiles;
+    if (!fwFiles) log("注意: ファーム情報未取得のため書き込み不可。 ページをリロードして再取得してください。");
+  } catch (e) {
+    log("接続失敗: " + (e && e.message ? e.message : e));
+    btnConnect.disabled = false;
+    transport = null;
+    esploader = null;
+  }
+});
+
+btnDisconnect.addEventListener("click", async () => {
+  try {
+    if (transport) {
+      await transport.disconnect();
+      log("切断しました。");
+    }
+  } catch (e) {
+    log("切断エラー: " + (e && e.message ? e.message : e));
+  } finally {
+    transport = null;
+    esploader = null;
+    btnConnect.disabled = false;
+    btnDisconnect.disabled = true;
+    btnWrite.disabled = true;
+  }
+});
+
+btnWrite.addEventListener("click", async () => {
+  if (!esploader) { log("先に接続してください。"); return; }
+  if (!fwFiles || !fwFlashSpec) { log("ファーム情報未取得のため書き込めません。"); return; }
+  try {
+    btnWrite.disabled = true;
+    btnDisconnect.disabled = true;
+    log("ファームファイルを取得中…");
+    const fileArray = [];
+    for (const f of fwFiles) {
+      const data = await fetchBinaryString(f.url);
+      log(`  ${f.name}: ${data.length} bytes → 0x${f.address.toString(16)}`);
+      fileArray.push({ data, address: f.address });
+    }
+    const totalBytes = fileArray.reduce((s, f) => s + f.data.length, 0);
+    log(`合計 ${totalBytes} bytes、 書き込み開始 (flash ${fwFlashSpec.flashSize}/${fwFlashSpec.flashFreq}/${fwFlashSpec.flashMode})…`);
+    progressEl.value = 0;
+    progressText.textContent = "0%";
+
+    const writtenSoFar = new Array(fileArray.length).fill(0);
+    await esploader.writeFlash({
+      fileArray,
+      flashSize: fwFlashSpec.flashSize,
+      flashMode: fwFlashSpec.flashMode,
+      flashFreq: fwFlashSpec.flashFreq,
+      eraseAll: false,
+      compress: true,
+      reportProgress: (fileIndex, written, total) => {
+        writtenSoFar[fileIndex] = written;
+        const totalWritten = writtenSoFar.reduce((s, n, i) => s + Math.min(n, fileArray[i].data.length), 0);
+        const pct = Math.min(100, Math.round((totalWritten / totalBytes) * 100));
+        progressEl.value = pct;
+        progressText.textContent = `${pct}% (file ${fileIndex + 1}/${fileArray.length}: ${written}/${total})`;
+      },
+      calculateMD5Hash: null,
+    });
+    progressEl.value = 100;
+    progressText.textContent = "100% — 完了";
+    log(`書き込み完了！ ${TARGETS[currentTarget].label} をリセットします…`);
+    await esploader.after();
+    if (TARGETS[currentTarget].usb_cdc_reset_caveat) {
+      log("リセット送信済み。 ファームが起動するはずです (LCD に notif 起動画面が表示)。");
+      log("⚠ 起動画面が出ない場合: USB-C ケーブルを 1 回抜いて再接続するか、 AtomS3 本体側面のリセットボタンを押してください (ESP32-S3 内蔵 USB CDC モードではブラウザからの hard reset が届かない仕様)。");
+    } else {
+      log("リセット送信済み。 ファームが起動するはずです。 atomlite 系は LCD なしのため、 BLE で notif_atomlite_XXXXXX / notif_atomvoice_XXXXXX が advertise されることで起動確認できる (poc-ble.html や control.html を使う)。");
+    }
+  } catch (e) {
+    log("書き込み失敗: " + (e && e.message ? e.message : e));
+    progressText.textContent = "失敗";
+  } finally {
+    btnDisconnect.disabled = !transport;
+    btnConnect.disabled = !!transport;
+    btnWrite.disabled = !esploader || !fwFiles;
+  }
+});
+
+renderTargetSpec(currentTarget);
+log("ready. ファーム情報を取得中…");
+loadFirmwareInfo().then(() => {
+  log(`${TARGETS[currentTarget].label} を USB-C で繋いで「USB シリアル接続」をクリック。 機種を切り替える場合は上部のラジオを変更。`);
+});
+</script>
+
+<footer style="margin-top: 2rem; padding: 0.5rem 0; border-top: 1px solid #ddd; color: #888; font-size: 0.75rem; text-align: center;">
+  page source <code>v10.6.0</code>
+</footer>
+</body>
+</html>

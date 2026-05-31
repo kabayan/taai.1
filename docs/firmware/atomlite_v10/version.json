@@ -1,0 +1,17 @@
+{
+  "version": "10.6.0",
+  "build_number": "05300302",
+  "built_at": "2026-05-29T18:02:22Z",
+  "target": "atomlite",
+  "chip": "esp32",
+  "flash_size": "4MB",
+  "flash_freq": "40m",
+  "flash_mode": "dio",
+  "baud": 1500000,
+  "files": [
+    { "name": "bootloader.bin", "address": "0x1000" },
+    { "name": "partitions.bin", "address": "0x8000" },
+    { "name": "boot_app0.bin",  "address": "0xe000" },
+    { "name": "firmware.bin",   "address": "0x10000" }
+  ]
+}

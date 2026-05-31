@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notif Web BLE Control v10.6.0</title>
+<link rel="stylesheet" href="control.css">
+</head>
+<body>
+<div class="container">
+  <p><a href="./index.html">&larr; notif トップへ戻る</a></p>
+  <h1>Notif Web BLE Control <small style="font-size: 0.7em; color: #888;">v10.6.0</small></h1>
+  <p class="note">
+    notif v10 ファーム (atomlite / atoms3-ir / atomlite-voice / atoms3-voice) を Web Bluetooth API 経由でブラウザ単体から制御する。
+    PC Chrome / Edge (HTTPS or localhost) または Android Chrome で動作。 iOS Safari は Web Bluetooth 非対応。
+  </p>
+
+  <fieldset id="conn">
+    <legend>1. 接続</legend>
+    <div class="row">
+      <button id="btnConnect">Scan &amp; Connect</button>
+      <button id="btnDisconnect" disabled>Disconnect</button>
+    </div>
+    <div class="note">
+      service filter: <code>12345678-1234-5678-1234-56789abcdef0</code> /
+      advertise: <code>notif_atomlite_v10_*</code> / <code>notif_atoms3ir_v10_*</code> / <code>notif_atomvoice_v10_*</code> / <code>notif_atoms3voice_v10_*</code>
+    </div>
+    <h2>CFG</h2>
+    <pre id="cfgView">未接続</pre>
+  </fieldset>
+
+  <fieldset data-cap="display" disabled>
+    <legend>2. テキスト (CMD_TEXT 0x02, caps:display)</legend>
+    <div class="row">
+      <label>x (0-31): <input type="number" id="textX" value="0" min="0" max="31"></label>
+      <label>y (0-31): <input type="number" id="textY" value="0" min="0" max="31"></label>
+      <label>size:
+        <select id="textSize">
+          <option value="1">SMALL (1x1)</option>
+          <option value="2" selected>MEDIUM (2x2)</option>
+          <option value="3">LARGE (4x4)</option>
+          <option value="4">XLARGE (8x8)</option>
+        </select>
+      </label>
+    </div>
+    <div class="row">
+      <label>color: <input type="color" id="textColor" value="#ffffff"></label>
+      <label>text: <input type="text" id="textBody" value="Hi" maxlength="32"></label>
+      <button id="btnSendText">Send TEXT</button>
+    </div>
+  </fieldset>
+
+  <fieldset data-cap="gpio" disabled>
+    <legend>3. GPIO (CMD_GPIO 0x30, caps:gpio)</legend>
+    <div class="row">
+      <label>pin: <select id="gpioPin"></select></label>
+      <label>op:
+        <select id="gpioOp">
+          <option value="1">HIGH</option>
+          <option value="2">LOW</option>
+          <option value="3">PULSE (duration_ms)</option>
+          <option value="4">MODE (val=mode)</option>
+          <option value="5">STATUS (read)</option>
+        </select>
+      </label>
+      <label>val (LE u16): <input type="number" id="gpioVal" value="0" min="0" max="65535"></label>
+      <button id="btnSendGpio">Send GPIO</button>
+    </div>
+    <div class="note">PULSE 時 val=duration_ms / MODE 時 val=INPUT=0/OUTPUT=1/INPUT_PULLUP=2 等</div>
+  </fieldset>
+
+  <fieldset data-cap="ir_tx" disabled>
+    <legend>4. IR Send (CMD_IR_SEND 0x40, caps:ir_tx)</legend>
+    <div class="row">
+      <label>protocol:
+        <select id="irProto">
+          <option value="1">NEC (0x01)</option>
+          <option value="2">Panasonic (0x02)</option>
+          <option value="3" selected>RAW (0x03)</option>
+          <option value="4">Sony (0x04)</option>
+          <option value="5">RC5 (0x05)</option>
+        </select>
+      </label>
+      <label>repeat (0-3): <input type="number" id="irRepeat" value="0" min="0" max="3"></label>
+      <label>freq_khz: <input type="number" id="irFreq" value="38" min="20" max="60"></label>
+    </div>
+    <div class="row">
+      <label>data (hex, space区切り): <input type="text" id="irData" value="0e 1c 23 c3" placeholder="例: 0e 1c 23 c3 (NEC 4B) / RAW は u16 LE timings"></label>
+    </div>
+    <div class="row">
+      <label>optional pin (省略可、 空欄=fw default):
+        <select id="irOptPin">
+          <option value="">(default)</option>
+        </select>
+      </label>
+      <button id="btnSendIr">Send IR</button>
+    </div>
+    <div class="note">RAW: timings は u16 LE の microseconds 配列、 hex 入力は LE u16 を 2 byte ずつスペース区切り (例: <code>30 23 18 23</code> = [0x2330, 0x2318])</div>
+  </fieldset>
+
+  <fieldset data-cap="ir_rx" disabled>
+    <legend>5. IR Recv 学習 (CMD_IR_RX_START 0x41 / STOP 0x42, caps:ir_rx)</legend>
+    <div class="row">
+      <button id="btnIrRxStart">学習開始</button>
+      <button id="btnIrRxStop">学習停止</button>
+    </div>
+    <div class="note">学習開始後、 リモコンを押すと IR_RX char に notify が来て下記に表示される。 atomlite は caps:ir_rx を申告するが、 IR モジュール物理接続 (atomlite Grove G32 / atoms3-ir Grove G2) を要する点に注意 (接続有無はユーザー判断)。</div>
+    <h2>直近受信パターン</h2>
+    <pre id="irRxView">(未受信)</pre>
+    <div class="row">
+      <label>name: <input type="text" id="irPatternName" placeholder="例: tv_power" maxlength="32"></label>
+      <button id="btnIrSave">保存 (localStorage)</button>
+    </div>
+    <h2>登録済パターン</h2>
+    <div class="row">
+      <label>再生 pin (省略可、 空欄=fw default):
+        <select id="irReplayPin">
+          <option value="">(default)</option>
+        </select>
+      </label>
+    </div>
+    <ul id="irPatterns"></ul>
+  </fieldset>
+
+  <fieldset data-cap="rgb_led" disabled>
+    <legend>6. RGB LED (CMD_RGB_LED 0x44, caps:rgb_led)</legend>
+    <div class="row">
+      <label>index: <input type="number" id="rgbIndex" value="0" min="0" max="255"></label>
+      <label>color: <input type="color" id="rgbColor" value="#ff0000"></label>
+      <button id="btnSendRgb">Send RGB</button>
+      <button id="btnRgbOff">Off</button>
+    </div>
+    <div class="note">atomlite は内蔵 SK6812 1 個 (index=0)、 範囲外は ERR_OUT_OF_BOUNDS</div>
+  </fieldset>
+
+  <fieldset data-cap="voice" disabled>
+    <legend>7. Voice テキスト再生 (CMD_VOICE 0x60, caps:voice)</legend>
+    <div class="row">
+      <label>text (utf8): <input type="text" id="voiceText" value="こんにちは" maxlength="80" style="width: 60%;"></label>
+      <button id="btnSendVoice">Send Voice</button>
+    </div>
+    <div class="row">
+      <label>音量 (0-100): <input type="number" id="voiceVolume" value="70" min="0" max="100" style="width: 80px;"></label>
+      <button id="btnSendVoiceVolume">Set Volume (0x61)</button>
+    </div>
+    <div class="note">JP 3 byte/字 で MTU 244 byte 上限 (約 81 文字)。 CHAR_MAP 不在文字は silent skip、 再生中重複は ERR_VOICE_BUSY (0x08) で reject。 atomlite-voice / atoms3-voice (Atomic Echo Base + ES8311 検出) でのみ enable。 音量 (CMD_VOICE_VOLUME 0x61) は sticky で、 Send Voice 時にも先に送信される。</div>
+  </fieldset>
+
+  <fieldset data-cap="stepper" disabled>
+    <legend>8. Stepper (CMD_STEPPER_* 0x50-0x54, caps:stepper)</legend>
+    <div class="row">
+      <label>angle (-3600〜3600): <input type="number" id="stepAngle" value="90" min="-3600" max="3600"></label>
+      <label>speed (1-19): <input type="number" id="stepSpeed" value="10" min="1" max="19"></label>
+      <button id="btnStepRotate">Rotate</button>
+    </div>
+    <div class="row">
+      <button id="btnStepSetHome">SetHome</button>
+      <button id="btnStepGoHome">GoHome</button>
+      <button id="btnStepReset">Reset</button>
+    </div>
+    <div class="row">
+      <label>pins (4個): <input type="number" id="stepP1" value="5" min="0" max="48"></label>
+      <input type="number" id="stepP2" value="6" min="0" max="48">
+      <input type="number" id="stepP3" value="7" min="0" max="48">
+      <input type="number" id="stepP4" value="8" min="0" max="48">
+      <button id="btnStepSetPins">SetPins</button>
+    </div>
+    <div class="note">速度 20+ は脱調 (atoms3-ir、 28BYJ-48 想定)</div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Log</legend>
+    <div id="log"></div>
+    <div class="row">
+      <button id="btnClearLog">Clear log</button>
+    </div>
+  </fieldset>
+</div>
+<script src="control.js"></script>
+<footer>
+  page source <code>v10.6.0</code>
+</footer>
+</body>
+</html>

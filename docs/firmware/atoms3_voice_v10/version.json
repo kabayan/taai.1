@@ -1,0 +1,17 @@
+{
+  "version": "10.6.0",
+  "build_number": "05300302",
+  "built_at": "2026-05-29T18:02:44Z",
+  "target": "atoms3-voice",
+  "chip": "esp32s3",
+  "flash_size": "8MB",
+  "flash_freq": "80m",
+  "flash_mode": "dio",
+  "baud": 1500000,
+  "files": [
+    { "name": "bootloader.bin", "address": "0x0" },
+    { "name": "partitions.bin", "address": "0x8000" },
+    { "name": "firmware.bin",   "address": "0x10000" },
+    { "name": "littlefs.bin", "address": "0x310000" }
+  ]
+}
