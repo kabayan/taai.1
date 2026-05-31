@@ -77,6 +77,7 @@ const VoiceControl = (() => {
   // 音声-IRマッピングデータ
   let mappings = [];
   const LOCAL_STORAGE_MAPPINGS_KEY = 'notif_voice_ir_mappings';
+  let editingMapId = null;
 
   // ===== ローカル AI (Built-in Prompt API) 用ラッパーブリッジ =====
   const LocalAiBridge = {
@@ -972,6 +973,16 @@ const VoiceControl = (() => {
       const item = document.createElement('div');
       item.className = 'mapping-item';
       
+      const irExists = map.irCodeName ? localStorage.getItem(`notif_ir_${map.irCodeName}`) !== null : false;
+      const irCodeHtml = map.irCodeName 
+        ? (irExists 
+            ? escapeHtml(map.irCodeName) 
+            : `<span style="color: var(--danger); font-weight: bold;">${escapeHtml(map.irCodeName)} (⚠️ 未登録 / 削除済み)</span>`
+          )
+        : '(なし)';
+
+      const isIrSendDisabled = map.irCodeName && irExists ? '' : 'disabled style="opacity: 0.3; cursor: not-allowed;"';
+
       item.innerHTML = `
         <div class="mapping-fields">
           <div>
@@ -980,7 +991,7 @@ const VoiceControl = (() => {
           </div>
           <div style="margin-top: 0.3rem;">
             <span class="mapping-label">赤外線コード:</span>
-            <div class="mapping-value">${escapeHtml(map.irCodeName || '(なし)')}</div>
+            <div class="mapping-value">${irCodeHtml}</div>
           </div>
         </div>
         <div class="mapping-fields">
@@ -995,7 +1006,8 @@ const VoiceControl = (() => {
         </div>
         <div class="mapping-actions">
           <button class="btn-accent btn-test-voice" data-id="${map.id}">テスト発声</button>
-          <button class="btn-primary btn-test-ir" data-id="${map.id}" ${map.irCodeName ? '' : 'disabled style="opacity: 0.3; cursor: not-allowed;"'}>テスト送信</button>
+          <button class="btn-primary btn-test-ir" data-id="${map.id}" ${isIrSendDisabled}>テスト送信</button>
+          <button style="background: rgba(6, 182, 212, 0.15); border: 1px solid var(--primary); color: var(--primary);" class="btn-edit" data-id="${map.id}">修正</button>
           <button class="btn-danger btn-delete" data-id="${map.id}">削除</button>
         </div>
       `;
@@ -1005,16 +1017,24 @@ const VoiceControl = (() => {
 
     // 削除ボタンイベント設定
     list.querySelectorAll('.btn-delete').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        const id = e.target.dataset.id;
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
         deleteMapping(id);
+      });
+    });
+
+    // 修正ボタンイベント設定
+    list.querySelectorAll('.btn-edit').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        startEditMapping(id);
       });
     });
 
     // テスト発声イベント設定
     list.querySelectorAll('.btn-test-voice').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        const id = e.target.dataset.id;
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
         const map = mappings.find((m) => m.id === id);
         if (map) {
           if (!isConnected) {
@@ -1028,8 +1048,8 @@ const VoiceControl = (() => {
 
     // テスト送信イベント設定
     list.querySelectorAll('.btn-test-ir').forEach((btn) => {
-      btn.addEventListener('click', async (e) => {
-        const id = e.target.dataset.id;
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
         const map = mappings.find((m) => m.id === id);
         if (map && map.irCodeName) {
           if (!isConnected) {
@@ -1061,19 +1081,79 @@ const VoiceControl = (() => {
       responseYomi = convertToYomi(response);
     }
 
-    const newMap = {
-      id: 'map_' + Date.now(),
-      trigger,
-      irCodeName: irCodeName || null,
-      response: response || "わかりました",
-      responseYomi: responseYomi || "わかりました"
-    };
+    if (editingMapId) {
+      // 編集（修正）モード時の処理
+      const index = mappings.findIndex((m) => m.id === editingMapId);
+      if (index !== -1) {
+        mappings[index].trigger = trigger;
+        mappings[index].irCodeName = irCodeName || null;
+        mappings[index].response = response || "わかりました";
+        mappings[index].responseYomi = responseYomi || "わかりました";
+        
+        saveMappingsToStorage();
+        renderMappings();
+        log(`音声アクションを修正しました: 「${trigger}」`, 'ok');
+      }
+      cancelEditMapping();
+    } else {
+      // 新規登録モード時の処理
+      const newMap = {
+        id: 'map_' + Date.now(),
+        trigger,
+        irCodeName: irCodeName || null,
+        response: response || "わかりました",
+        responseYomi: responseYomi || "わかりました"
+      };
 
-    mappings.push(newMap);
-    saveMappingsToStorage();
-    renderMappings();
+      mappings.push(newMap);
+      saveMappingsToStorage();
+      renderMappings();
 
-    // フォーム初期化
+      // フォーム初期化
+      $('newTrigger').value = '';
+      $('newIrCode').value = '';
+      $('newResponse').value = '';
+      $('newResponseYomi').value = '';
+      
+      toggleAccordion($('addFormPanel'), $('addFormCaret'), false);
+      
+      log(`新しい音声アクションを登録しました: 「${trigger}」`, 'ok');
+    }
+  }
+
+  function startEditMapping(id) {
+    const map = mappings.find((m) => m.id === id);
+    if (!map) return;
+
+    editingMapId = id;
+    
+    // UIを編集状態に切り替え
+    $('addFormTitle').textContent = '✍️ 音声アクションを修正';
+    $('btnAddMapping').textContent = '修正を保存';
+    $('btnCancelEdit').style.display = 'inline-block';
+    
+    // フォームに値を流し込み
+    $('newTrigger').value = map.trigger || '';
+    $('newIrCode').value = map.irCodeName || '';
+    $('newResponse').value = map.response || '';
+    $('newResponseYomi').value = map.responseYomi || '';
+
+    // アコーディオンを強制的に開く
+    toggleAccordion($('addFormPanel'), $('addFormCaret'), true);
+    
+    // フォームの先頭にスクロール
+    $('addFormPanel').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function cancelEditMapping() {
+    editingMapId = null;
+    
+    // UIを通常状態に戻す
+    $('addFormTitle').textContent = '+ 新しい音声アクションを追加';
+    $('btnAddMapping').textContent = 'マッピングを登録';
+    $('btnCancelEdit').style.display = 'none';
+    
+    // フォームクリア
     $('newTrigger').value = '';
     $('newIrCode').value = '';
     $('newResponse').value = '';
@@ -1081,12 +1161,13 @@ const VoiceControl = (() => {
     
     // アコーディオンを閉じる
     toggleAccordion($('addFormPanel'), $('addFormCaret'), false);
-    
-    log(`新しい音声アクションを登録しました: 「${trigger}」`, 'ok');
   }
 
   function deleteMapping(id) {
     if (confirm('このマッピングを削除してもよろしいですか？')) {
+      if (editingMapId === id) {
+        cancelEditMapping();
+      }
       mappings = mappings.filter((m) => m.id !== id);
       saveMappingsToStorage();
       renderMappings();
@@ -1359,6 +1440,7 @@ const VoiceControl = (() => {
 
     // マッピング登録
     $('btnAddMapping').addEventListener('click', addMapping);
+    $('btnCancelEdit').addEventListener('click', cancelEditMapping);
 
     // バックアップ・移行 (JSON エクスポート/インポート)
     $('btnIrExport').addEventListener('click', exportIrBackup);

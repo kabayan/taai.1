@@ -684,7 +684,7 @@
 
           <!-- 新規登録アコーディオン -->
           <div class="accordion-toggle" id="toggleAddForm" style="margin-top: 1rem; border-top: 1px dashed var(--card-border); padding-top: 0.75rem;">
-            <span style="font-size: 0.9rem; font-weight: 600; color: var(--primary);">+ 新しい音声アクションを追加</span>
+            <span id="addFormTitle" style="font-size: 0.9rem; font-weight: 600; color: var(--primary);">+ 新しい音声アクションを追加</span>
             <span class="caret" id="addFormCaret"></span>
           </div>
           
@@ -708,7 +708,8 @@
                 <label for="newResponseYomi">おもちゃの返答読み（ひらがな）</label>
                 <input type="text" id="newResponseYomi" placeholder="例: はーい！てれびおつけますね。">
               </div>
-              <div class="form-full" style="text-align: right; margin-top: 0.5rem;">
+              <div class="form-full" style="text-align: right; margin-top: 0.5rem; display: flex; gap: 0.5rem; justify-content: flex-end;">
+                <button id="btnCancelEdit" style="min-height: 40px; padding: 0 1.5rem; display: none; background: rgba(255,255,255,0.05);">キャンセル</button>
                 <button id="btnAddMapping" class="btn-primary" style="min-height: 40px; padding: 0 1.5rem;">マッピングを登録</button>
               </div>
             </div>
