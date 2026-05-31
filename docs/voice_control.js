@@ -1001,6 +1001,7 @@ const VoiceControl = (() => {
   async function checkLocalAiStatus() {
     const badge = $('localAiStatus');
     if (!badge) return;
+    const guide = $('localAiGuide');
     
     if (window.ai && window.ai.languageModel) {
       try {
@@ -1008,6 +1009,7 @@ const VoiceControl = (() => {
         if (capabilities.available !== 'no') {
           badge.textContent = '対応 / 利用可能 (Gemini Nano)';
           badge.style.color = 'var(--success)';
+          if (guide) guide.style.display = 'none';
           log('ローカル AI (Gemini Nano) が利用可能です', 'ok');
           return;
         }
@@ -1017,6 +1019,7 @@ const VoiceControl = (() => {
     }
     badge.textContent = '非対応 / 未検出';
     badge.style.color = 'var(--error)';
+    if (guide) guide.style.display = 'block';
   }
 
   async function generateAiResponse(inputText) {
@@ -1173,6 +1176,28 @@ const VoiceControl = (() => {
       if (e.target === $('settingsModal')) {
         $('settingsModal').classList.remove('show');
       }
+    });
+
+    // Chrome特権URLクリック時の自動コピー＆トースト通知
+    document.querySelectorAll('.chrome-link').forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const url = link.getAttribute('data-url');
+        if (url) {
+          navigator.clipboard.writeText(url).then(() => {
+            const toast = $('copyToast');
+            if (toast) {
+              toast.style.display = 'block';
+              // 4秒後に自動消去
+              setTimeout(() => {
+                toast.style.display = 'none';
+              }, 4000);
+            }
+          }).catch(err => {
+            console.error('URLコピー失敗:', err);
+          });
+        }
+      });
     });
 
     log('システム準備完了。Android Chrome または PC Chrome にて BLE 接続を開始してください。');

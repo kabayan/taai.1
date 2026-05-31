@@ -757,6 +757,56 @@
       <div class="form-group" style="margin-bottom: 0.75rem;">
         <label>ローカル AI (Gemini Nano) 検出ステータス</label>
         <div id="localAiStatus" style="font-size: 0.85rem; font-weight: bold; color: var(--error); margin-top: 0.2rem;">非対応 / 未検出</div>
+        
+        <!-- ローカルAI有効化ガイド -->
+        <div id="localAiGuide" style="margin-top: 0.75rem; padding: 0.75rem; background: rgba(239, 68, 68, 0.08); border-left: 2px solid var(--error); border-radius: 6px; font-size: 0.75rem; line-height: 1.45; display: none;">
+          <strong style="color: var(--text-main); display: block; margin-bottom: 0.5rem;">💡 ChromeでローカルAI（Gemini Nano）を有効にする手順</strong>
+          
+          <div style="margin-bottom: 0.75rem;">
+            <strong style="color: var(--primary); display: block; margin-bottom: 0.25rem;">1. 【ステップ 1】Chrome flags（隠し設定）で機能を有効にする</strong>
+            <span style="color: var(--text-muted); display: block; margin-bottom: 0.3rem;">ブラウザのアドレスバーに以下のURLをコピー＆ペーストして開き、それぞれのフラグを設定します（クリックでURLをコピーできます）。</span>
+            <ul style="margin-left: 1.1rem; color: var(--text-muted); list-style: decimal; padding-left: 0;">
+              <li style="margin-bottom: 0.3rem;">
+                <a href="#" class="chrome-link" data-url="chrome://flags/#optimization-guide-on-device-model" style="color: var(--primary); text-decoration: underline; font-weight: bold;">chrome://flags/#optimization-guide-on-device-model</a> を開きます。
+                <div style="font-size: 0.7rem; padding-left: 0.5rem; margin-top: 0.1rem;">• 「Enables on-device model evaluation」（または Optimization Guide On Device Model）を <strong style="color: var(--text-main);">「Enabled BypassPrefRequirement」</strong>（または Enabled）に変更します。</div>
+              </li>
+              <li style="margin-bottom: 0.3rem;">
+                <a href="#" class="chrome-link" data-url="chrome://flags/#prompt-api-for-gemini-nano" style="color: var(--primary); text-decoration: underline; font-weight: bold;">chrome://flags/#prompt-api-for-gemini-nano</a> を開きます。
+                <div style="font-size: 0.7rem; padding-left: 0.5rem; margin-top: 0.1rem;">• 「Prompt API for Gemini Nano」（または Prompt API...）を <strong style="color: var(--text-main);">「Enabled」</strong> に変更します。</div>
+              </li>
+              <li style="margin-bottom: 0.3rem;">
+                画面の右下に表示される <strong style="color: var(--text-main);">「Relaunch」</strong>（再起動）ボタンをクリックして、Chrome を一度再起動します。
+              </li>
+            </ul>
+          </div>
+
+          <hr style="border: 0; border-top: 1px dashed var(--card-border); margin: 0.75rem 0;">
+
+          <div>
+            <strong style="color: var(--primary); display: block; margin-bottom: 0.25rem;">2. 【ステップ 2】Gemini Nano モデルのダウンロードを完了させる</strong>
+            <span style="color: var(--text-muted); display: block; margin-bottom: 0.3rem;">フラグを有効にした後、Chrome がバックグラウンドで約 1.5GB の Gemini Nano モデルファイルをパソコンに自動ダウンロードし始めます。この進捗の確認とダウンロードの強制方法です。</span>
+            <ul style="margin-left: 1.1rem; color: var(--text-muted); list-style: decimal; padding-left: 0;">
+              <li style="margin-bottom: 0.3rem;">
+                アドレスバーに <a href="#" class="chrome-link" data-url="chrome://components" style="color: var(--primary); text-decoration: underline; font-weight: bold;">chrome://components</a> と入力してエンターキーを押し、コンポーネント一覧ページを開きます（クリックでコピー）。
+              </li>
+              <li style="margin-bottom: 0.3rem;">
+                ページ内から <strong style="color: var(--text-main);">「Optimization Guide On Device Model」</strong>（オンデバイスモデル最適化ガイド）という項目を探します。
+              </li>
+              <li style="margin-bottom: 0.3rem;">
+                その下にある <strong style="color: var(--text-main);">「アップデートを確認 (Check for update)」</strong> ボタンをクリックします。
+              </li>
+              <li style="margin-bottom: 0.3rem;">
+                ステータスが <strong style="color: var(--text-main);">「ダウンロード中...」</strong> または <strong style="color: var(--text-main);">「更新完了」</strong> になるまで待ちます。
+                <div style="font-size: 0.7rem; padding-left: 0.5rem; margin-top: 0.1rem; color: var(--text-muted);">
+                  ※モデルサイズが大きいため、回線速度によって数分〜10分程度かかります。<br>
+                  ※ステータス横のバージョン番号が <strong style="color: var(--text-main);">0.0.0.0 以外の数値</strong> に変わればダウンロード完了です。
+                </div>
+              </li>
+            </ul>
+          </div>
+          
+          <div style="font-size: 0.75rem; color: #34d399; margin-top: 0.75rem; font-weight: bold; display: none; background: rgba(52, 211, 153, 0.1); padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid rgba(52, 211, 153, 0.3);" id="copyToast">URLをコピーしました！アドレスバーに貼り付け（ペースト）してください。</div>
+        </div>
       </div>
 
       <div class="form-group" style="margin-bottom: 0.75rem;">
