@@ -667,6 +667,108 @@ const VoiceControl = (() => {
     return matches ? matches.join('') : '';
   }
 
+  // ===== JSON バックアップエクスポート / インポート機能 =====
+  function exportIrBackup() {
+    try {
+      // 1. 所有しているすべての赤外線パターンを収集
+      const irPatterns = {};
+      const keys = Object.keys(localStorage).filter((k) => k.startsWith('notif_ir_')).sort();
+      keys.forEach((key) => {
+        const name = key.replace(/^notif_ir_/, '');
+        irPatterns[name] = localStorage.getItem(key);
+      });
+
+      // 2. 音声マッピングの収集
+      const voiceMappings = mappings;
+
+      // 3. バックアップ用JSONデータの作成
+      const backupData = {
+        version: "1.0",
+        exportedAt: new Date().toISOString(),
+        irPatterns: irPatterns,
+        voiceMappings: voiceMappings
+      };
+
+      // 4. ダウンロード処理の実行
+      const jsonStr = JSON.stringify(backupData, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `voice_control_backup_${new Date().toISOString().slice(0,10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      log('赤外線コマンドおよびマッピング設定をエクスポートしました', 'ok');
+    } catch (e) {
+      log(`エクスポート失敗: ${e.message}`, 'ng');
+    }
+  }
+
+  function triggerIrImport() {
+    const fileInput = $('irImportFile');
+    if (fileInput) fileInput.click();
+  }
+
+  function handleIrImport(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+      try {
+        const data = JSON.parse(evt.target.result);
+        
+        // 簡易バリデーション
+        if (!data || typeof data !== 'object') {
+          throw new Error('無効な JSON フォーマットです');
+        }
+
+        let irCount = 0;
+        let mapCount = 0;
+
+        // 1. 赤外線パターンの復元
+        if (data.irPatterns && typeof data.irPatterns === 'object') {
+          for (const [name, pattern] of Object.entries(data.irPatterns)) {
+            localStorage.setItem(`notif_ir_${name}`, pattern);
+            irCount++;
+          }
+        }
+
+        // 2. 音声マッピングの復元 (マージ)
+        if (Array.isArray(data.voiceMappings)) {
+          data.voiceMappings.forEach(newMap => {
+            if (!newMap.trigger) return;
+            const index = mappings.findIndex(m => m.trigger === newMap.trigger);
+            if (index !== -1) {
+              mappings[index] = newMap;
+            } else {
+              mappings.push(newMap);
+            }
+            mapCount++;
+          });
+          localStorage.setItem(LOCAL_STORAGE_MAPPINGS_KEY, JSON.stringify(mappings));
+        }
+
+        // UIの再読み込み
+        refreshIrSelects();
+        renderMappings();
+        
+        alert(`インポートが完了しました！\n赤外線パターン: ${irCount} 件\n音声マッピング: ${mapCount} 件を復元/更新しました。`);
+        log(`JSONバックアップをインポートしました (IR: ${irCount}件, マッピング: ${mapCount}件)`, 'ok');
+        
+        e.target.value = '';
+      } catch (err) {
+        alert(`インポートエラー: ${err.message}`);
+        log(`インポートに失敗しました: ${err.message}`, 'ng');
+      }
+    };
+    reader.readAsText(file);
+  }
+
   // ===== 赤外線コードの読み込みと送信 =====
   async function sendStoredIrByName(name) {
     const key = `notif_ir_${name}`;
@@ -1257,6 +1359,11 @@ const VoiceControl = (() => {
 
     // マッピング登録
     $('btnAddMapping').addEventListener('click', addMapping);
+
+    // バックアップ・移行 (JSON エクスポート/インポート)
+    $('btnIrExport').addEventListener('click', exportIrBackup);
+    $('btnIrImport').addEventListener('click', triggerIrImport);
+    $('irImportFile').addEventListener('change', handleIrImport);
 
     // 漢字読み仮名自動入力補助
     $('newResponse').addEventListener('blur', (e) => {
