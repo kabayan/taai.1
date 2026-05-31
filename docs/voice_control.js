@@ -141,12 +141,20 @@ const VoiceControl = (() => {
     async createSession(options = {}) {
       const systemPrompt = options.systemPrompt || '';
 
+      // 互換オプションオブジェクトの作成
+      const sessionOptions = {
+        // 1. 旧仕様用オプション
+        systemPrompt: systemPrompt,
+        // 2. 最新の Prompt API (Chrome 131以降) 仕様用オプション
+        initialPrompts: systemPrompt ? [
+          { role: 'system', content: systemPrompt }
+        ] : []
+      };
+
       // 1. グローバルの LanguageModel が使える場合
       if (typeof LanguageModel !== 'undefined' && typeof LanguageModel.create === 'function') {
         try {
-          return await LanguageModel.create({
-            systemPrompt: systemPrompt
-          });
+          return await LanguageModel.create(sessionOptions);
         } catch (e) {
           console.warn('LanguageModel.create failed, falling back...', e);
         }
@@ -155,9 +163,7 @@ const VoiceControl = (() => {
       // 2. window.ai.languageModel が使える場合
       if (window.ai && window.ai.languageModel && typeof window.ai.languageModel.create === 'function') {
         try {
-          return await window.ai.languageModel.create({
-            systemPrompt: systemPrompt
-          });
+          return await window.ai.languageModel.create(sessionOptions);
         } catch (e) {
           console.warn('ai.languageModel.create failed, falling back...', e);
         }
