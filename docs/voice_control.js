@@ -757,6 +757,8 @@ const VoiceControl = (() => {
           </div>
         </div>
         <div class="mapping-actions">
+          <button class="btn-accent btn-test-voice" data-id="${map.id}">テスト発声</button>
+          <button class="btn-primary btn-test-ir" data-id="${map.id}" ${map.irCodeName ? '' : 'disabled style="opacity: 0.3; cursor: not-allowed;"'}>テスト送信</button>
           <button class="btn-danger btn-delete" data-id="${map.id}">削除</button>
         </div>
       `;
@@ -769,6 +771,39 @@ const VoiceControl = (() => {
       btn.addEventListener('click', (e) => {
         const id = e.target.dataset.id;
         deleteMapping(id);
+      });
+    });
+
+    // テスト発声イベント設定
+    list.querySelectorAll('.btn-test-voice').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        const id = e.target.dataset.id;
+        const map = mappings.find((m) => m.id === id);
+        if (map) {
+          if (!isConnected) {
+            alert('発声テストを行うには、先にBLEデバイスに接続してください。');
+            return;
+          }
+          speakResponse(map.response, map.responseYomi);
+        }
+      });
+    });
+
+    // テスト送信イベント設定
+    list.querySelectorAll('.btn-test-ir').forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        const id = e.target.dataset.id;
+        const map = mappings.find((m) => m.id === id);
+        if (map && map.irCodeName) {
+          if (!isConnected) {
+            alert('赤外線テスト送信を行うには、先にBLEデバイスに接続してください。');
+            return;
+          }
+          const success = await sendStoredIrByName(map.irCodeName);
+          if (success) {
+            log(`テスト送信成功: ${map.irCodeName}`, 'ok');
+          }
+        }
       });
     });
   }
