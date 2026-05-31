@@ -746,6 +746,28 @@
       </div>
     </div>
 
+    <!-- 自然対話 (AI) 設定 -->
+    <div style="border-top: 1px dashed var(--card-border); margin: 1.25rem 0 1rem 0; padding-top: 1rem;">
+      <h4 style="font-size: 0.95rem; font-weight: 600; color: var(--primary); margin-bottom: 0.5rem;">🤖 自然対話 (AI) 設定</h4>
+      <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+        定型アクション以外の発話に対し、AIによる自然対話応答を行います。<br>
+        Chromeの「Built-in AI (Gemini Nano)」が有効な場合は完全ローカルで動作します。
+      </p>
+      
+      <div class="form-group" style="margin-bottom: 0.75rem;">
+        <label>ローカル AI (Gemini Nano) 検出ステータス</label>
+        <div id="localAiStatus" style="font-size: 0.85rem; font-weight: bold; color: var(--error); margin-top: 0.2rem;">非対応 / 未検出</div>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 0;">
+        <label for="settingsGeminiKey">Gemini API キー (ローカルAI未検出時のフォールバック用)</label>
+        <input type="text" id="settingsGeminiKey" placeholder="AIzaSy..." style="font-size: 0.9rem;">
+        <div class="note" style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.3rem;">
+          ※キーを設定すると、ローカルAI非対応の環境でも外部API経由で自然対話が可能になります。キーはローカル（localStorage）に安全に保存されます。
+        </div>
+      </div>
+    </div>
+
     <div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.5rem;">
       <button id="btnCancelSettings" style="min-height: 40px; background: rgba(255,255,255,0.05);">キャンセル</button>
       <button id="btnSaveSettings" class="btn-primary" style="min-height: 40px;">設定を保存</button>

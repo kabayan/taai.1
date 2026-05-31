@@ -62,7 +62,7 @@ const VoiceControl = (() => {
     atoms3ir: [1, 2, 5, 6, 7, 8, 38, 39]
   };
 
-  let config = { irTxPin: null };
+  let config = { irTxPin: null, geminiKey: null };
   const LOCAL_STORAGE_CONFIG_KEY = 'notif_voice_control_config';
 
   // 音声認識関連
@@ -420,26 +420,23 @@ const VoiceControl = (() => {
       }
     }
 
-    // 2. マッチしなかった場合の標準雑談・フォールバック
+    // 2. マッチしなかった場合の自然対話への自動移行
     if (!matched) {
+      setSphereState('speaking', 'AI応答生成中...');
+      log('定型コマンドに不一致。自然対話（AI）に移行します。');
+      
       let responseText = "";
       let responseYomi = "";
-
-      if (text.includes("こんにちは") || text.includes("ハロー")) {
-        responseText = "こんにちは！お話しできて嬉しいです。";
-        responseYomi = "こんにちは！おはなしできて うれしいです。";
-      } else if (text.includes("ありがとう")) {
-        responseText = "どういたしまして！お役に立てて良かったです。";
-        responseYomi = "どういたしまして！おやくにたてて よかったです。";
-      } else if (text.includes("名前") || text.includes("だれ")) {
-        responseText = "私はあなたのロボットアシスタントです。";
-        responseYomi = "わたしわ あなたの ろぼっとあしすたんとです。";
-      } else {
-        // フォールバック
+      
+      try {
+        responseText = await generateAiResponse(text);
+        responseYomi = convertToYomi(responseText);
+      } catch (err) {
+        log(`AI応答生成エラー: ${err.message}`, 'ng');
         responseText = "よく聞き取れませんでした。もう一度言ってみてください。";
         responseYomi = "よくききとれませんでした。もういちど いってみてください。";
       }
-
+      
       await speakResponse(responseText, responseYomi);
     }
   }
@@ -941,6 +938,7 @@ const VoiceControl = (() => {
     if (raw) {
       try {
         config = JSON.parse(raw);
+        config.geminiKey = config.geminiKey || null;
       } catch (e) {
         log('設定パース失敗。初期化します。', 'ng');
       }
@@ -977,6 +975,95 @@ const VoiceControl = (() => {
     if (currentVal !== null && pins.includes(Number(currentVal))) {
       select.value = String(currentVal);
     }
+
+    // Gemini APIキーの復元
+    const keyInput = $('settingsGeminiKey');
+    if (keyInput) {
+      keyInput.value = config.geminiKey || '';
+    }
+
+    // ローカルAIステータスチェック
+    checkLocalAiStatus();
+  }
+
+  // ===== ローカル AI ＆ Gemini API 自然対話エンジン =====
+  const SYSTEM_PROMPT = "あなたは親切でお茶目なおもちゃのロボットです。ユーザーの発言に対して、必ず30文字以内の非常に短い日本語で、温かくフレンドリーに応答してください。発音しやすいようにひらがなを多めに使い、漢字は極力避けてください。";
+
+  async function checkLocalAiStatus() {
+    const badge = $('localAiStatus');
+    if (!badge) return;
+    
+    if (window.ai && window.ai.languageModel) {
+      try {
+        const capabilities = await ai.languageModel.capabilities();
+        if (capabilities.available !== 'no') {
+          badge.textContent = '対応 / 利用可能 (Gemini Nano)';
+          badge.style.color = 'var(--success)';
+          log('ローカル AI (Gemini Nano) が利用可能です', 'ok');
+          return;
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+    badge.textContent = '非対応 / 未検出';
+    badge.style.color = 'var(--error)';
+  }
+
+  async function generateAiResponse(inputText) {
+    // 1. Chrome Built-in AI (Gemini Nano) を優先使用
+    if (window.ai && window.ai.languageModel) {
+      try {
+        const capabilities = await ai.languageModel.capabilities();
+        if (capabilities.available !== 'no') {
+          log('ローカル AI (Gemini Nano) を起動中...');
+          const session = await ai.languageModel.create({
+            systemPrompt: SYSTEM_PROMPT
+          });
+          const reply = await session.prompt(inputText);
+          session.destroy();
+          log(`ローカル AI 応答: 「${reply.trim()}」`, 'ok');
+          return reply.trim();
+        }
+      } catch (e) {
+        log(`ローカル AI 起動失敗、フォールバックします: ${e.message}`);
+      }
+    }
+
+    // 2. 外部 Gemini API をフォールバックとして使用
+    if (config.geminiKey) {
+      log('外部 Gemini API を呼び出し中...');
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${config.geminiKey}`;
+      const payload = {
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: `${SYSTEM_PROMPT}\n\nユーザーの発言: "${inputText}"` }]
+          }
+        ],
+        generationConfig: {
+          maxOutputTokens: 50,
+          temperature: 0.7
+        }
+      };
+      
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      if (!res.ok) throw new Error(`Gemini API エラー (Status: ${res.status})`);
+      const json = await res.json();
+      const reply = json.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (reply) {
+        log(`Gemini API 応答: 「${reply.trim()}」`, 'ok');
+        return reply.trim();
+      }
+      throw new Error('Gemini API から有効な返答が得られませんでした');
+    }
+
+    throw new Error('利用可能な自然対話AIエンジンがありません（APIキー未設定、または非対応ブラウザ）');
   }
 
   // ===== 初期化 =====
@@ -1058,10 +1145,14 @@ const VoiceControl = (() => {
 
     $('btnSaveSettings').addEventListener('click', () => {
       const txVal = $('settingsIrTxPin').value;
+      const keyVal = $('settingsGeminiKey').value.trim();
+      
       config.irTxPin = txVal === '' ? null : parseInt(txVal, 10);
+      config.geminiKey = keyVal === '' ? null : keyVal;
+      
       saveConfig();
       $('settingsModal').classList.remove('show');
-      log(`ハードウェア設定を保存しました: IR TX=${config.irTxPin !== null ? 'G' + config.irTxPin : 'デフォルト'}`, 'ok');
+      log(`設定を保存しました: IR TX=${config.irTxPin !== null ? 'G' + config.irTxPin : 'デフォルト'}, AI=${config.geminiKey ? '有効' : '無効'}`, 'ok');
     });
 
     // モーダル外側クリックで閉じる
