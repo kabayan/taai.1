@@ -1449,16 +1449,21 @@ const VoiceControl = (() => {
     // 2. 外部 Gemini API をフォールバックとして使用
     if (config.geminiKey) {
       log('外部 Gemini API を呼び出し中...');
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${config.geminiKey}`;
+      // 安定かつ広く利用可能な 'gemini-1.5-flash' モデルを使用
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${config.geminiKey}`;
       const payload = {
+        // システムプロンプト（キャラクター設定）をシステム指示文として独立させて定義
+        systemInstruction: {
+          parts: [{ text: prompt }]
+        },
         contents: [
           {
             role: "user",
-            parts: [{ text: `${prompt}\n\nユーザーの発言: "${inputText}"` }]
+            parts: [{ text: inputText }]
           }
         ],
         generationConfig: {
-          maxOutputTokens: 50,
+          maxOutputTokens: 150, // 日本語の発話が途中で切れないよう、最大トークン数を50から150に拡大
           temperature: 0.7
         }
       };
