@@ -1814,17 +1814,28 @@ const VoiceControl = (() => {
 
   // ===== 初期化 =====
   function init() {
+    // 堅牢なイベントバインド用ヘルパー
+    const bindEvent = (id, event, handler) => {
+      const el = $(id);
+      if (el) {
+        el.addEventListener(event, handler);
+      } else {
+        console.warn(`[VoiceControl.init] 要素 #${id} が見つからないため、イベント ${event} の登録をスキップしました。`);
+      }
+    };
+
     // Bluetooth イベント登録
-    $('btnConnect').addEventListener('click', connect);
-    $('btnDisconnect').addEventListener('click', disconnect);
+    bindEvent('btnConnect', 'click', connect);
+    bindEvent('btnDisconnect', 'click', disconnect);
     
     // ボリュームスライダー
-    $('voiceVolume').addEventListener('input', (e) => {
-      $('volLabel').textContent = e.target.value;
+    bindEvent('voiceVolume', 'input', (e) => {
+      const volLabel = $('volLabel');
+      if (volLabel) volLabel.textContent = e.target.value;
     });
 
     // 音声認識トグル
-    $('btnToggleSpeech').addEventListener('click', () => {
+    bindEvent('btnToggleSpeech', 'click', () => {
       if (isSpeechActive) {
         stopSpeechRecognition();
       } else {
@@ -1837,68 +1848,64 @@ const VoiceControl = (() => {
     });
 
     // 赤外線学習 (オプショナル)
-    $('btnIrRxStart').addEventListener('click', irRxStart);
-    $('btnIrRxStop').addEventListener('click', irRxStop);
-    $('btnIrSave').addEventListener('click', saveIrPattern);
+    bindEvent('btnIrRxStart', 'click', irRxStart);
+    bindEvent('btnIrRxStop', 'click', irRxStop);
+    bindEvent('btnIrSave', 'click', saveIrPattern);
 
     // アコーディオン開閉
-    $('toggleCfg').addEventListener('click', () => {
+    bindEvent('toggleCfg', 'click', () => {
       toggleAccordion($('cfgPanel'), $('cfgCaret'));
     });
-    $('toggleMapping').addEventListener('click', () => {
+    bindEvent('toggleMapping', 'click', () => {
       toggleAccordion($('mappingPanel'), $('mappingCaret'));
     });
-    $('toggleLog').addEventListener('click', () => {
+    bindEvent('toggleLog', 'click', () => {
       toggleAccordion($('systemLogPanel'), $('logCaret'));
     });
 
     // カメラプレビュー窓のタップによる顔認識のトグル
-    const faceTapArea = $('faceTapArea');
-    if (faceTapArea) {
-      faceTapArea.addEventListener('click', async () => {
-        if (isConnected) {
-          log("カメラプレビュー窓がタップされました。顔検出を切り替えます...");
-          await toggleFaceDetection();
-        }
-      });
-    }
+    bindEvent('faceTapArea', 'click', async () => {
+      if (isConnected) {
+        log("カメラプレビュー窓がタップされました。顔検出を切り替えます...");
+        await toggleFaceDetection();
+      }
+    });
 
     // しきい値スライダー
-    $('faceSizeThreshold').addEventListener('input', (e) => {
-      $('thresholdLabel').textContent = e.target.value + '%';
+    bindEvent('faceSizeThreshold', 'input', (e) => {
+      const label = $('thresholdLabel');
+      if (label) label.textContent = e.target.value + '%';
     });
 
     // ログクリア
-    $('btnClearLog').addEventListener('click', () => {
-      $('log').innerHTML = '';
+    bindEvent('btnClearLog', 'click', () => {
+      const logContainer = $('log');
+      if (logContainer) logContainer.innerHTML = '';
     });
 
     // 対話履歴をクリア
-    const btnClearChat = $('btnClearChat');
-    if (btnClearChat) {
-      btnClearChat.addEventListener('click', () => {
-        const feed = $('chatFeed');
-        if (feed) {
-          feed.innerHTML = '<div class="chat-msg system">対話履歴をクリアしました。</div>';
-          log('対話履歴をクリアしました');
-        }
-      });
-    }
+    bindEvent('btnClearChat', 'click', () => {
+      const feed = $('chatFeed');
+      if (feed) {
+        feed.innerHTML = '<div class="chat-msg system">対話履歴をクリアしました。</div>';
+        log('対話履歴をクリアしました');
+      }
+    });
 
     // マッピング登録
-    $('btnAddMapping').addEventListener('click', addMapping);
-    $('btnCancelEdit').addEventListener('click', cancelEditMapping);
+    bindEvent('btnAddMapping', 'click', addMapping);
+    bindEvent('btnCancelEdit', 'click', cancelEditMapping);
 
     // バックアップ・移行 (JSON エクスポート/インポート)
-    $('btnIrExport').addEventListener('click', exportIrBackup);
-    $('btnIrImport').addEventListener('click', triggerIrImport);
-    $('irImportFile').addEventListener('change', handleIrImport);
+    bindEvent('btnIrExport', 'click', exportIrBackup);
+    bindEvent('btnIrImport', 'click', triggerIrImport);
+    bindEvent('irImportFile', 'change', handleIrImport);
 
     // 漢字読み仮名自動入力補助
-    $('newResponse').addEventListener('blur', (e) => {
+    bindEvent('newResponse', 'blur', (e) => {
       const responseVal = e.target.value.trim();
       const yomiInput = $('newResponseYomi');
-      if (responseVal && !yomiInput.value.trim()) {
+      if (responseVal && yomiInput && !yomiInput.value.trim()) {
         yomiInput.value = convertToYomi(responseVal);
       }
     });
@@ -1911,20 +1918,23 @@ const VoiceControl = (() => {
     populateSettingsGpioSelects();
 
     // 疑似ページ遷移 (SPA) 制御
-    $('btnGotoSettings').addEventListener('click', () => {
+    bindEvent('btnGotoSettings', 'click', () => {
       populateSettingsGpioSelects();
       showPage('settings');
     });
 
-    $('btnBackToDialogue').addEventListener('click', () => {
+    bindEvent('btnBackToDialogue', 'click', () => {
       showPage('dialogue');
     });
 
     // 設定保存ボタン
-    $('btnSaveSettings').addEventListener('click', () => {
-      const txVal = $('settingsIrTxPin').value;
-      const keyVal = $('settingsGeminiKey').value.trim();
-      const promptVal = $('settingsSystemPrompt').value.trim();
+    bindEvent('btnSaveSettings', 'click', () => {
+      const txSelect = $('settingsIrTxPin');
+      const txVal = txSelect ? txSelect.value : '';
+      const keyInput = $('settingsGeminiKey');
+      const keyVal = keyInput ? keyInput.value.trim() : '';
+      const promptInput = $('settingsSystemPrompt');
+      const promptVal = promptInput ? promptInput.value.trim() : '';
       
       config.irTxPin = txVal === '' ? null : parseInt(txVal, 10);
       config.geminiKey = keyVal === '' ? null : keyVal;
