@@ -1420,16 +1420,21 @@ const VoiceControl = (() => {
 
   async function generateAiResponse(inputText) {
     const prompt = config.systemPrompt || DEFAULT_SYSTEM_PROMPT;
+    log(`[generateAiResponse] 開始 - 入力テキスト: 「${inputText}」`);
+    log(`[generateAiResponse] システムプロンプト (文字数: ${prompt.length}): 「${prompt.substring(0, 50)}...」`);
 
     // 1. Chrome Built-in AI (Gemini Nano) を優先使用
     try {
+      log(`[generateAiResponse] ローカル AI の可用性をチェック中...`);
       const check = await LocalAiBridge.checkAvailability();
+      log(`[generateAiResponse] 可用性チェック結果: available=${check.available}, type=${check.type}, status=${check.status}`);
+      
       if (check.available) {
-        log(`ローカル AI (Gemini Nano) を起動中... (プロンプトサイズ: ${prompt.length} 文字)`);
-        console.log('Sending system prompt to local AI:', prompt);
+        log(`[generateAiResponse] ローカル AI セッション作成中...`);
         const session = await LocalAiBridge.createSession({
           systemPrompt: prompt
         });
+        log(`[generateAiResponse] セッション作成成功。プロンプト送信中...`);
         const reply = await session.prompt(inputText);
         
         // 破棄メソッドの安全な呼び出し (destroy または close)
@@ -1439,20 +1444,23 @@ const VoiceControl = (() => {
           session.close();
         }
         
-        log(`ローカル AI 応答: 「${reply.trim()}」`, 'ok');
+        log(`[generateAiResponse] ローカル AI 応答成功: 「${reply.trim()}」`, 'ok');
         return reply.trim();
+      } else {
+        log(`[generateAiResponse] ローカル AI は利用不可です（available=false）`);
       }
     } catch (e) {
-      log(`ローカル AI 起動・実行失敗、フォールバックします: ${e.message}`);
+      log(`[generateAiResponse] ローカル AI 実行エラー（外部フォールバックします）: ${e.message}`, 'ng');
+      console.error('Local AI error:', e);
     }
 
     // 2. 外部 Gemini API をフォールバックとして使用
     if (config.geminiKey) {
-      log('外部 Gemini API を呼び出し中...');
-      // 安定かつ広く利用可能な 'gemini-1.5-flash' モデルを使用
+      const maskedKey = config.geminiKey.substring(0, 6) + '...' + config.geminiKey.substring(config.geminiKey.length - 4);
+      log(`[generateAiResponse] 外部 Gemini API を呼び出します。キー: ${maskedKey}`);
+      
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${config.geminiKey}`;
       const payload = {
-        // システムプロンプト（キャラクター設定）をシステム指示文として独立させて定義
         systemInstruction: {
           parts: [{ text: prompt }]
         },
@@ -1463,27 +1471,59 @@ const VoiceControl = (() => {
           }
         ],
         generationConfig: {
-          maxOutputTokens: 150, // 日本語の発話が途中で切れないよう、最大トークン数を50から150に拡大
+          maxOutputTokens: 150,
           temperature: 0.7
         }
       };
       
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      log(`[generateAiResponse] APIリクエスト送信中...`);
+      log(`[generateAiResponse] リクエスト内容: ${JSON.stringify(payload)}`);
       
-      if (!res.ok) throw new Error(`Gemini API エラー (Status: ${res.status})`);
-      const json = await res.json();
-      const reply = json.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (reply) {
-        log(`Gemini API 応答: 「${reply.trim()}」`, 'ok');
-        return reply.trim();
+      try {
+        const startTime = Date.now();
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        
+        const duration = Date.now() - startTime;
+        log(`[generateAiResponse] APIレスポンス受信。ステータスコード: ${res.status} (通信時間: ${duration}ms)`);
+        
+        if (!res.ok) {
+          let errorText = '';
+          try {
+            errorText = await res.text();
+          } catch (e) {
+            errorText = '(レスポンスボディ読み込み失敗)';
+          }
+          throw new Error(`HTTP ${res.status} - ${errorText}`);
+        }
+        
+        const json = await res.json();
+        log(`[generateAiResponse] レスポンスJSON: ${JSON.stringify(json)}`);
+        
+        const reply = json.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (reply) {
+          log(`[generateAiResponse] 外部 AI 応答成功: 「${reply.trim()}」`, 'ok');
+          return reply.trim();
+        }
+        
+        // テキストがない場合の診断ログ出力
+        if (json.promptFeedback) {
+          log(`[generateAiResponse] 警告: プロンプトブロック検出: ${JSON.stringify(json.promptFeedback)}`, 'ng');
+        }
+        if (json.candidates?.[0]?.finishReason) {
+          log(`[generateAiResponse] 警告: 終了理由 (finishReason): ${json.candidates[0].finishReason}`, 'ng');
+        }
+        throw new Error('レスポンスJSON内にテキストコンテンツが含まれていませんでした');
+      } catch (fetchErr) {
+        log(`[generateAiResponse] APIリクエスト実行エラー: ${fetchErr.message}`, 'ng');
+        throw fetchErr;
       }
-      throw new Error('Gemini API から有効な返答が得られませんでした');
     }
 
+    log(`[generateAiResponse] エラー: 設定された外部 API キーが見つかりません。`);
     throw new Error('利用可能な自然対話AIエンジンがありません（APIキー未設定、または非対応ブラウザ）');
   }
 
