@@ -558,6 +558,7 @@
   #settingsModal.show {
     display: flex !important;
     opacity: 1 !important;
+    pointer-events: auto !important;
   }
 </style>
 </head>
@@ -566,7 +567,7 @@
   <header>
     <h1>Voice Control Center <small style="font-size: 0.6em; color: var(--text-muted); font-weight: normal; margin-left: 0.5rem; border: 1px solid var(--card-border); padding: 0.15rem 0.45rem; border-radius: 6px; background: rgba(255,255,255,0.02); vertical-align: middle;">v1.0</small></h1>
     <div style="display: flex; gap: 0.75rem; align-items: center;">
-      <button id="btnOpenSettings" style="min-height: 36px; padding: 0 0.75rem; font-size: 0.85rem; background: rgba(255,255,255,0.05);"><span style="font-size:1.1rem;">⚙️</span> ポート設定</button>
+      <button id="btnOpenSettings" style="min-height: 36px; padding: 0 0.75rem; font-size: 0.85rem; background: rgba(255,255,255,0.05);"><span style="font-size:1.1rem;">⚙️</span> システム設定</button>
       <a href="./index.html" class="back-link">&larr; Flasher Top</a>
     </div>
   </header>
@@ -654,9 +655,12 @@
           <div class="voice-status-text" id="voiceStatusLabel">STANDBY</div>
         </div>
 
-        <div style="text-align: center; margin-bottom: 1.25rem;">
+        <div style="text-align: center; margin-bottom: 1.25rem; display: flex; gap: 0.75rem; justify-content: center; align-items: center; flex-wrap: wrap;">
           <button id="btnToggleSpeech" class="btn-primary" style="width: 220px; font-weight: bold; border-radius: 9999px; box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);">
             音声認識を開始する
+          </button>
+          <button id="btnOpenSettingsShortcut" class="btn-accent" style="min-height: 44px; padding: 0 1.25rem; border-radius: 9999px; background: rgba(139, 92, 246, 0.15); border: 1px solid var(--secondary); color: var(--secondary); font-size: 0.85rem; font-weight: bold; box-shadow: none; display: inline-flex; align-items: center; gap: 0.35rem; transition: all 0.2s;">
+            ⚙️ AI・システム設定
           </button>
         </div>
         
@@ -776,13 +780,12 @@
   </div>
 </div>
 
-<!-- ポート設定モーダル -->
-<div id="settingsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 1000; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease;">
-  <div class="card" style="width: 90%; max-width: 450px; border-color: rgba(6, 182, 212, 0.4); box-shadow: 0 0 30px rgba(6, 182, 212, 0.2); background: #0c0e17;">
-    <h3 class="card-title">⚙️ ハードウェアポート設定</h3>
+<!-- ポート・システム設定モーダル -->
+<div id="settingsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 2000; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.25s ease; pointer-events: none;">
+  <div class="card" style="width: 90%; max-width: 450px; border-color: rgba(6, 182, 212, 0.4); box-shadow: 0 0 30px rgba(6, 182, 212, 0.2); background: #0c0e17; pointer-events: auto;">
+    <h3 class="card-title">⚙️ システム設定</h3>
     <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">
-      赤外線（IR）送信に使用するGPIOポート（ピン）を設定します。<br>
-      外部IR Unitを異なるポートに接続する場合に変更してください。
+      赤外線（IR）送信ピンおよびAI自然対話（APIキー）などのシステム共通設定を行います。
     </p>
     
     <div class="form-group">

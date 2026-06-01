@@ -1823,11 +1823,17 @@ const VoiceControl = (() => {
     initSpeechRecognition();
     populateSettingsGpioSelects();
 
-    // ポート設定ダイアログ制御
-    $('btnOpenSettings').addEventListener('click', () => {
+    // システム設定ダイアログ制御
+    const openSettings = () => {
       populateSettingsGpioSelects();
       $('settingsModal').classList.add('show');
-    });
+    };
+    $('btnOpenSettings').addEventListener('click', openSettings);
+    
+    const btnOpenSettingsShortcut = $('btnOpenSettingsShortcut');
+    if (btnOpenSettingsShortcut) {
+      btnOpenSettingsShortcut.addEventListener('click', openSettings);
+    }
 
     $('btnCancelSettings').addEventListener('click', () => {
       $('settingsModal').classList.remove('show');
