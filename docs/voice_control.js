@@ -1459,7 +1459,7 @@ const VoiceControl = (() => {
       const maskedKey = config.geminiKey.substring(0, 6) + '...' + config.geminiKey.substring(config.geminiKey.length - 4);
       log(`[generateAiResponse] 外部 Gemini API を呼び出します。キー: ${maskedKey}`);
       
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${config.geminiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${config.geminiKey}`;
       const payload = {
         systemInstruction: {
           parts: [{ text: prompt }]
