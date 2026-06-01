@@ -307,6 +307,13 @@
       align-items: center;
     }
 
+    .sphere-mic-row {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+    }
+
     .face-wrapper {
       flex: 1;
       max-width: 240px;
@@ -337,15 +344,23 @@
 
     .sphere-wrapper {
       display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--card-border);
+      padding: 0.85rem;
+      border-radius: 12px;
+    }
+
+    .sphere-mic-row {
+      display: flex;
       flex-direction: row;
       align-items: center;
       justify-content: space-between;
       gap: 1rem;
       width: 100%;
-      background: rgba(255, 255, 255, 0.02);
-      border: 1px solid var(--card-border);
-      padding: 0.65rem 0.85rem;
-      border-radius: 12px;
     }
 
     .voice-sphere-container {
@@ -782,16 +797,19 @@
 
           <!-- B. ホログラフィックボイス球体 ＆ マイク起動 -->
           <div id="voiceSphereWrapper" class="sphere-wrapper">
-            <div class="voice-sphere-container" style="position: relative; display: flex; flex-direction: column; align-items: center; margin-bottom: 0.5rem;">
-              <div class="voice-sphere" id="voiceSphere"></div>
-              <div class="voice-status-text" id="voiceStatusLabel">STANDBY</div>
-            </div>
+            <!-- 球体とマイクボタンの横並び用ラッパー (スマホ用) -->
+            <div class="sphere-mic-row">
+              <div class="voice-sphere-container" style="position: relative; display: flex; flex-direction: column; align-items: center; margin-bottom: 0.5rem;">
+                <div class="voice-sphere" id="voiceSphere"></div>
+                <div class="voice-status-text" id="voiceStatusLabel">STANDBY</div>
+              </div>
 
-            <!-- 音声トグルボタン (スマホでは小さく、PCでは大きく) -->
-            <button id="btnToggleSpeech" class="btn-mic-toggle btn-primary" style="width: 100%; border-radius: 9999px; margin-bottom: 0.75rem;">
-              <span class="mic-icon">🎤</span>
-              <span class="mic-text">マイク入力開始</span>
-            </button>
+              <!-- 音声トグルボタン (スマホでは小さく、PCでは大きく) -->
+              <button id="btnToggleSpeech" class="btn-mic-toggle btn-primary" style="width: 100%; border-radius: 9999px;">
+                <span class="mic-icon">🎤</span>
+                <span class="mic-text">マイク入力開始</span>
+              </button>
+            </div>
 
             <!-- キーボードテキスト入力エリア -->
             <div id="keyboardInputContainer" style="display: flex; gap: 0.5rem; width: 100%;">
