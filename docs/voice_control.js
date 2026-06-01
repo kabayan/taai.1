@@ -89,12 +89,26 @@ const VoiceControl = (() => {
 
   // ===== ローカル AI (Built-in Prompt API) 用ラッパーブリッジ =====
   const LocalAiBridge = {
+    // 共通の日本語用 Prompt API オプション
+    getJaOptions() {
+      return {
+        expectedInputs: [
+          { type: 'text', languages: ['ja'] }
+        ],
+        expectedOutputs: [
+          { type: 'text', languages: ['ja'] }
+        ]
+      };
+    },
+
     // 利用可能か判定する
     async checkAvailability() {
+      const options = this.getJaOptions();
+
       // 1. 最新のグローバル LanguageModel クラスによる検出
       if (typeof LanguageModel !== 'undefined' && typeof LanguageModel.availability === 'function') {
         try {
-          const status = await LanguageModel.availability();
+          const status = await LanguageModel.availability(options);
           if (status !== 'no') {
             return { available: true, type: 'LanguageModel (Global)', status };
           }
@@ -108,7 +122,7 @@ const VoiceControl = (() => {
         // 2.a 最新の availability メソッド
         if (typeof window.ai.languageModel.availability === 'function') {
           try {
-            const status = await window.ai.languageModel.availability();
+            const status = await window.ai.languageModel.availability(options);
             if (status !== 'no') {
               return { available: true, type: 'ai.languageModel (Availability)', status };
             }
@@ -119,7 +133,7 @@ const VoiceControl = (() => {
         // 2.b 以前の capabilities メソッド
         if (typeof window.ai.languageModel.capabilities === 'function') {
           try {
-            const caps = await window.ai.languageModel.capabilities();
+            const caps = await window.ai.languageModel.capabilities(options);
             if (caps && caps.available !== 'no') {
               return { available: true, type: 'ai.languageModel (Capabilities)', status: caps.available };
             }
@@ -149,6 +163,7 @@ const VoiceControl = (() => {
     // セッションを作成する
     async createSession(options = {}) {
       const systemPrompt = options.systemPrompt || '';
+      const jaOptions = this.getJaOptions();
 
       // 互換オプションオブジェクトの作成
       const sessionOptions = {
@@ -159,12 +174,8 @@ const VoiceControl = (() => {
           { role: 'system', content: systemPrompt }
         ] : [],
         // 言語設定とシステムプロンプトの整合性を確保するためのヒント設定
-        expectedInputs: [
-          { type: 'text', languages: ['ja'] }
-        ],
-        expectedOutputs: [
-          { type: 'text', languages: ['ja'] }
-        ]
+        expectedInputs: jaOptions.expectedInputs,
+        expectedOutputs: jaOptions.expectedOutputs
       };
 
       // 1. グローバルの LanguageModel が使える場合
