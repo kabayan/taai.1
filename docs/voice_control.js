@@ -79,6 +79,14 @@ const VoiceControl = (() => {
   const LOCAL_STORAGE_MAPPINGS_KEY = 'notif_voice_ir_mappings';
   let editingMapId = null;
 
+  // 顔認識オート起動関連
+  let isFaceDetectionActive = false;
+  let visionModule = null;
+  let faceDetector = null;
+  let cameraStream = null;
+  let faceDetectionLoopActive = false;
+  let lastFaceTriggerTime = 0;
+
   // ===== ローカル AI (Built-in Prompt API) 用ラッパーブリッジ =====
   const LocalAiBridge = {
     // 利用可能か判定する
@@ -1390,6 +1398,241 @@ const VoiceControl = (() => {
     throw new Error('利用可能な自然対話AIエンジンがありません（APIキー未設定、または非対応ブラウザ）');
   }
 
+  // ===== 顔認識オート起動機能 (MediaPipe Face Detector) =====
+  function updateFaceStatus(state) {
+    const badge = $('faceStatusBadge');
+    if (badge) {
+      badge.textContent = state.toUpperCase();
+      if (state === 'active' || state === 'detecting') {
+        badge.style.background = 'rgba(16, 185, 129, 0.15)';
+        badge.style.color = 'var(--success)';
+      } else if (state === 'loading') {
+        badge.style.background = 'rgba(245, 158, 11, 0.15)';
+        badge.style.color = '#f59e0b';
+      } else if (state === 'error') {
+        badge.style.background = 'rgba(239, 68, 68, 0.15)';
+        badge.style.color = 'var(--error)';
+      } else {
+        badge.style.background = 'rgba(255, 255, 255, 0.05)';
+        badge.style.color = 'var(--text-muted)';
+      }
+    }
+    
+    const btn = $('btnToggleFaceDetection');
+    if (btn) {
+      if (state === 'active' || state === 'detecting') {
+        btn.textContent = '顔認識を停止';
+        btn.style.background = 'rgba(239, 68, 68, 0.15)';
+        btn.style.border = '1px solid var(--error)';
+        btn.style.color = 'var(--error)';
+      } else if (state === 'loading') {
+        btn.textContent = 'モデル読み込み中...';
+        btn.disabled = true;
+      } else {
+        btn.textContent = '顔認識を起動';
+        btn.disabled = false;
+        btn.style.background = 'rgba(255, 255, 255, 0.08)';
+        btn.style.border = '1px solid rgba(255, 255, 255, 0.1)';
+        btn.style.color = 'var(--text-main)';
+      }
+    }
+  }
+
+  function updateFaceOverlayText(text) {
+    const el = $('faceOverlayText');
+    if (el) el.textContent = text;
+  }
+
+  async function initFaceDetector() {
+    if (faceDetector) return faceDetector;
+    
+    updateFaceStatus('loading');
+    updateFaceOverlayText('AIモデルをロード中...');
+    
+    try {
+      visionModule = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0");
+      const { FaceDetector, FilesetResolver } = visionModule;
+      
+      const vision = await FilesetResolver.forVisionTasks(
+        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm"
+      );
+      
+      faceDetector = await FaceDetector.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
+          delegate: "GPU"
+        },
+        runningMode: "IMAGE"
+      });
+      
+      updateFaceStatus('active');
+      return faceDetector;
+    } catch (err) {
+      updateFaceStatus('error');
+      updateFaceOverlayText('初期化エラー: ' + err.message);
+      log('MediaPipe Face Detector初期化失敗: ' + err.message, 'ng');
+      throw err;
+    }
+  }
+
+  async function startCamera() {
+    const video = $('faceVideo');
+    if (!video) return;
+    
+    try {
+      cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'user', // インカメラ優先
+          width: { ideal: 320 },
+          height: { ideal: 240 }
+        },
+        audio: false
+      });
+      video.srcObject = cameraStream;
+      video.onloadedmetadata = () => {
+        video.play();
+        faceDetectionLoopActive = true;
+        requestAnimationFrame(detectionLoop);
+      };
+    } catch (err) {
+      updateFaceStatus('error');
+      updateFaceOverlayText('カメラ起動失敗: ' + err.message);
+      log('カメラの起動に失敗しました: ' + err.message, 'ng');
+    }
+  }
+
+  function stopCamera() {
+    faceDetectionLoopActive = false;
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      cameraStream = null;
+    }
+    const video = $('faceVideo');
+    if (video) {
+      video.srcObject = null;
+    }
+    const canvas = $('faceCanvas');
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    isFaceDetectionActive = false;
+    updateFaceStatus('off');
+    updateFaceOverlayText('カメラ停止中');
+  }
+
+  async function toggleFaceDetection() {
+    if (isFaceDetectionActive) {
+      stopCamera();
+    } else {
+      try {
+        await initFaceDetector();
+        isFaceDetectionActive = true;
+        await startCamera();
+        updateFaceStatus('active');
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  }
+
+  async function detectionLoop() {
+    if (!faceDetectionLoopActive) return;
+    
+    const video = $('faceVideo');
+    const canvas = $('faceCanvas');
+    if (!video || !canvas || video.paused || video.ended) {
+      requestAnimationFrame(detectionLoop);
+      return;
+    }
+    
+    if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+    }
+    
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    if (faceDetector) {
+      try {
+        const results = faceDetector.detect(video);
+        let maxFaceRatio = 0;
+        let targetFace = null;
+        
+        if (results && results.detections && results.detections.length > 0) {
+          for (const detection of results.detections) {
+            const { originX, originY, width, height } = detection.boundingBox;
+            
+            // Draw box in cyan
+            ctx.strokeStyle = '#06b6d4';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(originX, originY, width, height);
+            
+            // Calculate ratio of face width relative to video width
+            const ratio = (width / video.videoWidth) * 100;
+            if (ratio > maxFaceRatio) {
+              maxFaceRatio = ratio;
+              targetFace = { originX, originY, width, height, ratio };
+            }
+          }
+        }
+        
+        const threshold = parseInt($('faceSizeThreshold').value, 10);
+        
+        if (targetFace) {
+          const isCloseEnough = maxFaceRatio >= threshold;
+          
+          // Draw label in success (green) or accent (magenta)
+          ctx.fillStyle = isCloseEnough ? '#10b981' : '#ec4899';
+          ctx.font = 'bold 14px sans-serif';
+          ctx.fillText(
+            `Face: ${maxFaceRatio.toFixed(1)}% (Threshold: ${threshold}%)`, 
+            targetFace.originX, 
+            targetFace.originY - 8
+          );
+          
+          if (isCloseEnough) {
+            ctx.strokeStyle = '#10b981';
+            ctx.lineWidth = 5;
+            ctx.strokeRect(targetFace.originX, targetFace.originY, targetFace.width, targetFace.height);
+            
+            triggerSpeechRecognitionFromFace(maxFaceRatio);
+          }
+          
+          updateFaceOverlayText(`顔認識: ${maxFaceRatio.toFixed(1)}% / しきい値: ${threshold}%`);
+        } else {
+          updateFaceOverlayText('顔を探しています...');
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    
+    requestAnimationFrame(detectionLoop);
+  }
+
+  function triggerSpeechRecognitionFromFace(ratio) {
+    if (!isConnected) {
+      updateFaceOverlayText(`⚠️ デバイス未接続のため起動不可 (${ratio.toFixed(1)}%)`);
+      return;
+    }
+    
+    if (isSpeechActive || isMutedForSpeaking) {
+      return;
+    }
+    
+    const now = Date.now();
+    if (now - lastFaceTriggerTime < 5000) { // Cooldown of 5 seconds to avoid repeated trigger during prompt handling
+      return;
+    }
+    
+    lastFaceTriggerTime = now;
+    log(`顔認識オート起動検知: 顔の大きさ ${ratio.toFixed(1)}% >= しきい値 ${$('faceSizeThreshold').value}%`, 'ok');
+    
+    startSpeechRecognition();
+  }
+
   // ===== 初期化 =====
   function init() {
     // Bluetooth イベント登録
@@ -1431,6 +1674,27 @@ const VoiceControl = (() => {
     });
     $('toggleLog').addEventListener('click', () => {
       toggleAccordion($('systemLogPanel'), $('logCaret'));
+    });
+
+    // 顔認識アコーディオン開閉
+    $('toggleFaceAutoStart').addEventListener('click', () => {
+      const panel = $('faceAutoStartPanel');
+      const isCurrentlyExpanded = panel.classList.contains('expanded');
+      toggleAccordion(panel, $('faceAutoStartCaret'));
+      
+      // 閉じた場合はプライバシーと電池節約のためにカメラを停止する
+      if (isCurrentlyExpanded && isFaceDetectionActive) {
+        stopCamera();
+        log('顔認識パネルが閉じられたため、カメラを停止しました');
+      }
+    });
+
+    // 顔認識起動トグルボタン
+    $('btnToggleFaceDetection').addEventListener('click', toggleFaceDetection);
+
+    // しきい値スライダー
+    $('faceSizeThreshold').addEventListener('input', (e) => {
+      $('thresholdLabel').textContent = e.target.value + '%';
     });
 
     // ログクリア

@@ -659,6 +659,42 @@
             音声認識を開始する
           </button>
         </div>
+        
+        <!-- 顔認識オート起動アコーディオン -->
+        <div class="accordion-toggle" id="toggleFaceAutoStart" style="margin-bottom: 1.25rem; border-top: 1px dashed var(--card-border); padding-top: 0.75rem;">
+          <span style="font-size: 0.9rem; font-weight: 600; color: var(--primary); display: inline-flex; align-items: center; gap: 0.4rem;">
+            📸 顔認識オート音声入力 <span id="faceStatusBadge" class="status-badge" style="background: rgba(255, 255, 255, 0.05); color: var(--text-muted); font-size: 0.65rem; padding: 0.1rem 0.35rem; border-radius: 4px; font-weight: normal; vertical-align: middle; margin-left: 0.3rem;">OFF</span>
+          </span>
+          <span class="caret" id="faceAutoStartCaret"></span>
+        </div>
+        
+        <div class="accordion-content collapsed" id="faceAutoStartPanel" style="margin-bottom: 1.25rem;">
+          <div style="background: rgba(0, 0, 0, 0.2); padding: 0.85rem; border-radius: 10px; border: 1px solid var(--card-border);">
+            <p class="mapping-label" style="margin-bottom: 0.75rem; line-height: 1.4;">インカメラ映像で顔検出を行い、顔が画面内で一定以上の大きさ（近づいた状態）になると自動で音声認識を開始します。</p>
+            
+            <div style="display: flex; gap: 0.75rem; align-items: center; margin-bottom: 0.75rem;">
+              <button id="btnToggleFaceDetection" style="flex-grow: 1; min-height: 40px; font-weight: bold; font-size: 0.85rem; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px;">
+                顔認識を起動
+              </button>
+              <div style="display: flex; flex-direction: column; width: 100px; align-items: center;">
+                <span class="mapping-label" style="text-align: center; font-size: 0.65rem; margin-bottom: 0.15rem;">起動しきい値</span>
+                <input type="range" id="faceSizeThreshold" min="10" max="90" value="30" style="min-height: auto; width: 100%;">
+                <span id="thresholdLabel" style="font-size: 0.75rem; text-align: center; color: var(--primary); font-weight: bold; margin-top: 0.15rem;">30%</span>
+              </div>
+            </div>
+
+            <!-- カメラプレビューコンテナ -->
+            <div style="position: relative; width: 100%; max-width: 240px; margin: 0 auto; aspect-ratio: 4/3; background: #000; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);">
+              <video id="faceVideo" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);"></video>
+              <canvas id="faceCanvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: scaleX(-1); pointer-events: none;"></canvas>
+              
+              <!-- 検出ステータス表示のオーバーレイ -->
+              <div id="faceOverlayText" style="position: absolute; bottom: 8px; left: 8px; right: 8px; background: rgba(0,0,0,0.6); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.7rem; text-align: center; color: #fff; border: 1px solid rgba(255,255,255,0.15);">
+                カメラ未起動
+              </div>
+            </div>
+          </div>
+        </div>
 
         <div class="form-group">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
