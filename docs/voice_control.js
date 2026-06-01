@@ -203,6 +203,23 @@ const VoiceControl = (() => {
   // ===== ユーティリティ =====
   const $ = (id) => document.getElementById(id);
 
+  // 疑似ページ (SPA) 画面切り替え
+  function showPage(pageName) {
+    const pageDialogue = $('pageDialogue');
+    const pageSettings = $('pageSettings');
+    if (!pageDialogue || !pageSettings) return;
+    
+    if (pageName === 'dialogue') {
+      pageDialogue.style.display = 'block';
+      pageSettings.style.display = 'none';
+      log('対話画面に切り替えました');
+    } else if (pageName === 'settings') {
+      pageDialogue.style.display = 'none';
+      pageSettings.style.display = 'block';
+      log('設定画面に切り替えました');
+    }
+  }
+
   function log(msg, cls) {
     const el = $('log');
     if (!el) return;
@@ -368,9 +385,13 @@ const VoiceControl = (() => {
     log('BLE 接続が切断されました', 'ng');
     setConnectedState(false);
     
+    if (isFaceDetectionActive) {
+      stopCamera();
+    }
     if (isSpeechActive) {
       stopSpeechRecognition();
     }
+    showPage('dialogue'); // 切断時は対話画面に戻す
 
     if (!userInitiatedDisconnect) {
       log('自動再接続を試みます...');
@@ -393,6 +414,9 @@ const VoiceControl = (() => {
     if (isSpeechActive) {
       stopSpeechRecognition();
     }
+    if (isFaceDetectionActive) {
+      stopCamera();
+    }
     if (device && device.gatt.connected) {
       device.gatt.disconnect();
       log('手動切断しました');
@@ -405,13 +429,47 @@ const VoiceControl = (() => {
     $('btnConnect').disabled = connected;
     $('btnDisconnect').disabled = !connected;
     
-    const badge = $('connStatus');
+    const bleInitPanel = $('bleInitPanel');
+    const bleActiveContent = $('bleActiveContent');
+    const connStatusText = $('connStatusText');
+    const connStatusDeviceType = $('connStatusDeviceType');
+    
     if (connected) {
-      badge.textContent = '接続中';
-      badge.className = 'status-badge connected';
+      if (bleInitPanel) bleInitPanel.style.display = 'none';
+      if (bleActiveContent) bleActiveContent.style.display = 'block';
+      
+      const deviceTypeName = (cfg && cfg.type) ? cfg.type : 'notif_device';
+      if (connStatusText) {
+        connStatusText.textContent = (deviceTypeName.includes('s3') ? 'AtomS3' : 'Atom Lite') + ' に接続中';
+      }
+      if (connStatusDeviceType) {
+        connStatusDeviceType.textContent = deviceTypeName;
+        connStatusDeviceType.className = 'status-badge connected';
+      }
+      
+      // スマホ（モバイル環境）なら顔認識オート音声入力を自動起動
+      const isMobile = window.innerWidth < 800 || /Mobi|Android|iPhone/i.test(navigator.userAgent);
+      if (isMobile) {
+        log("スマホ環境を検出: 顔認識オート音声入力を自動起動します...");
+        setTimeout(async () => {
+          if (!isFaceDetectionActive) {
+            await toggleFaceDetection();
+          }
+        }, 1200);
+      }
     } else {
-      badge.textContent = '未接続';
-      badge.className = 'status-badge';
+      if (bleInitPanel) bleInitPanel.style.display = 'block';
+      if (bleActiveContent) bleActiveContent.style.display = 'none';
+      
+      if (isFaceDetectionActive) {
+        stopCamera();
+      }
+      if (isSpeechActive) {
+        stopSpeechRecognition();
+      }
+      
+      showPage('dialogue'); // 強制的にもとのページに戻す
+      
       $('cfgView').textContent = '未接続';
       $('btnIrRxStart').disabled = true;
       $('btnIrRxStop').disabled = true;
@@ -475,8 +533,12 @@ const VoiceControl = (() => {
     isMutedForSpeaking = false;
     try {
       recognition.start();
-      $('btnToggleSpeech').textContent = '音声認識を停止する';
-      $('btnToggleSpeech').className = 'btn-accent';
+      const btn = $('btnToggleSpeech');
+      if (btn) {
+        const textSpan = btn.querySelector('.mic-text');
+        if (textSpan) textSpan.textContent = 'マイク入力停止';
+        btn.className = 'btn-mic-toggle btn-accent';
+      }
       log('音声待ち受けを開始しました');
     } catch (e) {
       log('音声認識開始エラー: ' + e.message, 'ng');
@@ -488,8 +550,12 @@ const VoiceControl = (() => {
     if (!recognition) return;
     try {
       recognition.stop();
-      $('btnToggleSpeech').textContent = '音声認識を開始する';
-      $('btnToggleSpeech').className = 'btn-primary';
+      const btn = $('btnToggleSpeech');
+      if (btn) {
+        const textSpan = btn.querySelector('.mic-text');
+        if (textSpan) textSpan.textContent = 'マイク入力開始';
+        btn.className = 'btn-mic-toggle btn-primary';
+      }
       setSphereState('standby', 'STANDBY');
       log('音声待ち受けを停止しました');
     } catch (e) {
@@ -1530,39 +1596,23 @@ const VoiceControl = (() => {
   // ===== 顔認識オート起動機能 (MediaPipe Face Detector) =====
   function updateFaceStatus(state) {
     const badge = $('faceStatusBadge');
+    const container = $('faceTapArea');
     if (badge) {
-      badge.textContent = state.toUpperCase();
       if (state === 'active' || state === 'detecting') {
-        badge.style.background = 'rgba(16, 185, 129, 0.15)';
-        badge.style.color = 'var(--success)';
+        badge.textContent = 'ON';
+        badge.className = 'status-badge connected';
+        if (container) container.classList.add('active');
       } else if (state === 'loading') {
-        badge.style.background = 'rgba(245, 158, 11, 0.15)';
-        badge.style.color = '#f59e0b';
+        badge.textContent = '起動中...';
+        badge.className = 'status-badge loading';
       } else if (state === 'error') {
-        badge.style.background = 'rgba(239, 68, 68, 0.15)';
-        badge.style.color = 'var(--error)';
+        badge.textContent = 'エラー';
+        badge.className = 'status-badge';
+        if (container) container.classList.remove('active');
       } else {
-        badge.style.background = 'rgba(255, 255, 255, 0.05)';
-        badge.style.color = 'var(--text-muted)';
-      }
-    }
-    
-    const btn = $('btnToggleFaceDetection');
-    if (btn) {
-      if (state === 'active' || state === 'detecting') {
-        btn.textContent = '顔認識を停止';
-        btn.style.background = 'rgba(239, 68, 68, 0.15)';
-        btn.style.border = '1px solid var(--error)';
-        btn.style.color = 'var(--error)';
-      } else if (state === 'loading') {
-        btn.textContent = 'モデル読み込み中...';
-        btn.disabled = true;
-      } else {
-        btn.textContent = '顔認識を起動';
-        btn.disabled = false;
-        btn.style.background = 'rgba(255, 255, 255, 0.08)';
-        btn.style.border = '1px solid rgba(255, 255, 255, 0.1)';
-        btn.style.color = 'var(--text-main)';
+        badge.textContent = 'OFF';
+        badge.className = 'status-badge';
+        if (container) container.classList.remove('active');
       }
     }
   }
@@ -1795,9 +1845,6 @@ const VoiceControl = (() => {
     $('toggleCfg').addEventListener('click', () => {
       toggleAccordion($('cfgPanel'), $('cfgCaret'));
     });
-    $('toggleAddForm').addEventListener('click', () => {
-      toggleAccordion($('addFormPanel'), $('addFormCaret'));
-    });
     $('toggleMapping').addEventListener('click', () => {
       toggleAccordion($('mappingPanel'), $('mappingCaret'));
     });
@@ -1805,21 +1852,16 @@ const VoiceControl = (() => {
       toggleAccordion($('systemLogPanel'), $('logCaret'));
     });
 
-    // 顔認識アコーディオン開閉
-    $('toggleFaceAutoStart').addEventListener('click', () => {
-      const panel = $('faceAutoStartPanel');
-      const isCurrentlyExpanded = panel.classList.contains('expanded');
-      toggleAccordion(panel, $('faceAutoStartCaret'));
-      
-      // 閉じた場合はプライバシーと電池節約のためにカメラを停止する
-      if (isCurrentlyExpanded && isFaceDetectionActive) {
-        stopCamera();
-        log('顔認識パネルが閉じられたため、カメラを停止しました');
-      }
-    });
-
-    // 顔認識起動トグルボタン
-    $('btnToggleFaceDetection').addEventListener('click', toggleFaceDetection);
+    // カメラプレビュー窓のタップによる顔認識のトグル
+    const faceTapArea = $('faceTapArea');
+    if (faceTapArea) {
+      faceTapArea.addEventListener('click', async () => {
+        if (isConnected) {
+          log("カメラプレビュー窓がタップされました。顔検出を切り替えます...");
+          await toggleFaceDetection();
+        }
+      });
+    }
 
     // しきい値スライダー
     $('faceSizeThreshold').addEventListener('input', (e) => {
@@ -1868,22 +1910,17 @@ const VoiceControl = (() => {
     initSpeechRecognition();
     populateSettingsGpioSelects();
 
-    // システム設定ダイアログ制御
-    const openSettings = () => {
+    // 疑似ページ遷移 (SPA) 制御
+    $('btnGotoSettings').addEventListener('click', () => {
       populateSettingsGpioSelects();
-      $('settingsModal').classList.add('show');
-    };
-    $('btnOpenSettings').addEventListener('click', openSettings);
-    
-    const btnOpenSettingsShortcut = $('btnOpenSettingsShortcut');
-    if (btnOpenSettingsShortcut) {
-      btnOpenSettingsShortcut.addEventListener('click', openSettings);
-    }
-
-    $('btnCancelSettings').addEventListener('click', () => {
-      $('settingsModal').classList.remove('show');
+      showPage('settings');
     });
 
+    $('btnBackToDialogue').addEventListener('click', () => {
+      showPage('dialogue');
+    });
+
+    // 設定保存ボタン
     $('btnSaveSettings').addEventListener('click', () => {
       const txVal = $('settingsIrTxPin').value;
       const keyVal = $('settingsGeminiKey').value.trim();
@@ -1894,15 +1931,8 @@ const VoiceControl = (() => {
       config.systemPrompt = promptVal === '' ? DEFAULT_SYSTEM_PROMPT : promptVal;
       
       saveConfig();
-      $('settingsModal').classList.remove('show');
+      showPage('dialogue'); // 対話ページに戻る
       log(`設定を保存しました: IR TX=${config.irTxPin !== null ? 'G' + config.irTxPin : 'デフォルト'}, AI=${config.geminiKey ? '有効' : '無効'}`, 'ok');
-    });
-
-    // モーダル外側クリックで閉じる
-    $('settingsModal').addEventListener('click', (e) => {
-      if (e.target === $('settingsModal')) {
-        $('settingsModal').classList.remove('show');
-      }
     });
 
     // Chrome特権URLクリック時の自動コピー＆トースト通知

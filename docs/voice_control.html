@@ -78,6 +78,16 @@
     -webkit-text-fill-color: transparent;
   }
 
+  /* 疑似ページ (SPA) コンテナ */
+  .page-container {
+    animation: page-fade 0.25s ease-out;
+  }
+
+  @keyframes page-fade {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
   /* グラスモルフィズムカード */
   .card {
     background: var(--card-bg);
@@ -156,26 +166,30 @@
     filter: brightness(1.1);
   }
 
-  .btn-danger {
-    background: var(--error);
-    border: none;
-  }
-
-  /* インプット・セレクト */
-  input[type="text"], input[type="number"], select {
-    background: rgba(0, 0, 0, 0.3);
+  /* フォーム要素 */
+  input[type="text"], select, textarea {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.4);
     border: 1px solid var(--card-border);
     border-radius: 8px;
     padding: 0.75rem;
+    color: #fff;
     min-height: 44px;
-    width: 100%;
-    outline: none;
     transition: border-color 0.2s;
   }
 
-  input[type="text"]:focus, input[type="number"]:focus, select:focus {
+  input[type="text"]:focus, select:focus, textarea:focus {
+    outline: none;
     border-color: var(--primary);
-    box-shadow: 0 0 5px var(--primary-glow);
+  }
+
+  .flex-row {
+    display: flex;
+    gap: 0.75rem;
+  }
+
+  .flex-row button {
+    flex: 1;
   }
 
   .form-group {
@@ -204,30 +218,189 @@
     .grid-layout {
       grid-template-columns: 350px 1fr;
     }
-    
-    .main-panel {
-      display: grid;
-      grid-template-rows: auto 1fr;
-      gap: 1rem;
-    }
   }
 
-  /* 接続状態表示 */
+  /* BLE 接続ステータスバー (音声入力ペインのすぐ上) */
+  .conn-status-bar {
+    padding: 0.85rem 1.25rem !important;
+    background: rgba(16, 22, 40, 0.75);
+    border-color: rgba(6, 182, 212, 0.15);
+    margin-bottom: 0.75rem !important;
+  }
+
+  .status-indicator {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--error);
+    box-shadow: 0 0 8px var(--error);
+  }
+
+  .status-indicator.connected {
+    background: var(--success);
+    box-shadow: 0 0 10px var(--success);
+    animation: status-pulse 2s infinite;
+  }
+
+  @keyframes status-pulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.15); opacity: 0.7; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .btn-disconnect-tiny {
+    min-height: 28px !important;
+    padding: 0.15rem 0.65rem !important;
+    font-size: 0.75rem !important;
+    background: rgba(239, 68, 68, 0.1) !important;
+    border: 1px solid var(--error) !important;
+    color: var(--error) !important;
+    border-radius: 6px !important;
+  }
+
+  /* 接続状態表示用バッジ */
   .status-badge {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
-    font-size: 0.85rem;
-    padding: 0.25rem 0.6rem;
-    border-radius: 9999px;
-    background: rgba(239, 68, 68, 0.15);
+    font-size: 0.8rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    background: rgba(239, 68, 68, 0.1);
     color: var(--error);
     font-weight: 500;
   }
 
   .status-badge.connected {
-    background: rgba(16, 185, 129, 0.15);
+    background: rgba(16, 185, 129, 0.1);
     color: var(--success);
+  }
+
+  .status-badge.loading {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+  }
+
+  /* 音声入力ペインのレスポンシブ配置 */
+  .device-responsive-layout {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    width: 100%;
+    padding: 0.5rem 0;
+  }
+
+  /* PC向けレイアウト設定: マイク大きく、カメラ小さく */
+  @media (min-width: 800px) {
+    .device-responsive-layout {
+      flex-direction: row;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 3rem;
+    }
+
+    .sphere-wrapper {
+      flex: 1.4;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .face-wrapper {
+      flex: 1;
+      max-width: 240px;
+      padding: 0.5rem;
+      border-left: 1px dashed var(--card-border);
+      padding-left: 1.5rem;
+    }
+
+    .btn-mic-toggle {
+      width: 220px;
+      font-size: 1rem;
+      padding: 0.75rem 1.5rem;
+    }
+  }
+
+  /* スマホ・モバイル向けレイアウト設定: カメラ大きく、マイク小さく */
+  @media (max-width: 799px) {
+    .device-responsive-layout {
+      flex-direction: column;
+      align-items: center;
+      gap: 1.25rem;
+    }
+
+    .face-wrapper {
+      width: 100%;
+      max-width: 280px;
+    }
+
+    .sphere-wrapper {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--card-border);
+      padding: 0.65rem 0.85rem;
+      border-radius: 12px;
+    }
+
+    .voice-sphere-container {
+      margin-bottom: 0 !important;
+      scale: 0.75;
+      width: auto !important;
+    }
+
+    .btn-mic-toggle {
+      flex-grow: 1;
+      min-height: 40px !important;
+      padding: 0.5rem 0.75rem !important;
+      font-size: 0.8rem !important;
+    }
+  }
+
+  /* カメラプレビュー窓のデザイン */
+  .camera-preview-container {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4/3;
+    background: #000;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 2px solid rgba(6, 182, 212, 0.2);
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.6);
+  }
+
+  .camera-preview-container.active {
+    border-color: var(--primary);
+    box-shadow: 0 0 20px rgba(6, 182, 212, 0.25);
+  }
+
+  /* スキャンエフェクト線 */
+  .scanline {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: rgba(6, 182, 212, 0.6);
+    box-shadow: 0 0 8px var(--primary);
+    pointer-events: none;
+    display: none;
+  }
+
+  .camera-preview-container.active .scanline {
+    display: block;
+    animation: scan 4s linear infinite;
+  }
+
+  @keyframes scan {
+    0% { top: 0%; }
+    50% { top: 100%; }
+    100% { top: 0%; }
   }
 
   /* ホログラフィック・ボイス球体 */
@@ -236,81 +409,116 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 1.5rem 0;
   }
 
   .voice-sphere {
-    width: 160px;
-    height: 160px;
+    width: 100px;
+    height: 100px;
     border-radius: 50%;
-    background: radial-gradient(circle at 30% 30%, #06b6d4, #8b5cf6, #0a0b10);
+    background: radial-gradient(circle, rgba(6, 182, 212, 0.6) 0%, rgba(139, 92, 246, 0.1) 70%);
     box-shadow: 
-      0 0 30px rgba(6, 182, 212, 0.3),
+      0 0 30px var(--primary-glow),
       inset 0 0 20px rgba(255, 255, 255, 0.2);
-    position: relative;
+    margin-bottom: 0.75rem;
     transition: all 0.5s ease;
+    position: relative;
     animation: float 4s ease-in-out infinite;
   }
 
-  /* 状態別の球体スタイル */
-  .voice-sphere.listening {
-    background: radial-gradient(circle at 30% 30%, #8b5cf6, #ec4899, #0a0b10);
-    box-shadow: 
-      0 0 45px rgba(139, 92, 246, 0.6),
-      inset 0 0 25px rgba(255, 255, 255, 0.3);
-    animation: float 2s ease-in-out infinite, pulse-listening 1.2s infinite alternate;
-  }
-
-  .voice-sphere.speaking {
-    background: radial-gradient(circle at 30% 30%, #ec4899, #f59e0b, #0a0b10);
-    box-shadow: 
-      0 0 50px rgba(236, 72, 153, 0.7),
-      inset 0 0 30px rgba(255, 255, 255, 0.3);
-    animation: float 1s ease-in-out infinite, pulse-speaking 0.5s infinite alternate;
-  }
-
-  .voice-sphere::after {
-    content: '';
-    position: absolute;
-    top: 5px;
-    left: 5px;
-    right: 5px;
-    bottom: 5px;
-    border-radius: 50%;
-    border: 1px dashed rgba(255, 255, 255, 0.15);
-    animation: rotate 10s linear infinite;
-  }
-
   @keyframes float {
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-10px); }
+    0% { transform: translateY(0px) scale(1); }
+    50% { transform: translateY(-6px) scale(1.02); }
+    100% { transform: translateY(0px) scale(1); }
   }
 
-  @keyframes rotate {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+  /* 認識中の動き */
+  .voice-sphere.listening {
+    background: radial-gradient(circle, rgba(139, 92, 246, 0.8) 0%, rgba(236, 72, 153, 0.1) 70%);
+    box-shadow: 
+      0 0 40px var(--secondary-glow),
+      0 0 60px rgba(236, 72, 153, 0.2),
+      inset 0 0 20px rgba(255, 255, 255, 0.3);
+    animation: pulse 1s ease-in-out infinite alternate;
   }
 
-  @keyframes pulse-listening {
-    0% { transform: scale(1) translateY(-5px); }
-    100% { transform: scale(1.08) translateY(-5px); }
+  @keyframes pulse {
+    from { transform: scale(1.02); }
+    to { transform: scale(1.15); }
   }
 
-  @keyframes pulse-speaking {
-    0% { transform: scale(1) translateY(-5px); }
-    100% { transform: scale(1.15) translateY(-5px); }
+  /* 発声中 */
+  .voice-sphere.speaking {
+    background: radial-gradient(circle, rgba(16, 185, 129, 0.7) 0%, rgba(6, 182, 212, 0.1) 70%);
+    box-shadow: 
+      0 0 35px rgba(16, 185, 129, 0.5),
+      0 0 50px rgba(6, 182, 212, 0.2),
+      inset 0 0 15px rgba(255, 255, 255, 0.2);
+    animation: talk 0.3s ease-in-out infinite alternate;
+  }
+
+  @keyframes talk {
+    from { transform: scale(1) skewX(-2deg); }
+    to { transform: scale(1.08) skewX(2deg); }
   }
 
   .voice-status-text {
-    margin-top: 1rem;
-    font-size: 0.95rem;
-    font-weight: 500;
-    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--primary);
+    letter-spacing: 0.15em;
+    text-shadow: 0 0 8px var(--primary-glow);
     text-transform: uppercase;
-    letter-spacing: 0.1em;
   }
 
-  /* 对话フィード（チャット） */
+  .voice-sphere.listening ~ .voice-status-text {
+    color: var(--secondary);
+    text-shadow: 0 0 8px var(--secondary-glow);
+  }
+
+  .voice-sphere.speaking ~ .voice-status-text {
+    color: var(--success);
+    text-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+  }
+
+  /* アコーディオン */
+  .accordion-toggle {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+    padding: 0.25rem 0;
+  }
+
+  .caret {
+    display: inline-block;
+    width: 0;
+    height: 0;
+    margin-left: 0.5rem;
+    vertical-align: middle;
+    border-top: 4px dashed;
+    border-right: 4px solid transparent;
+    border-left: 4px solid transparent;
+    transition: transform 0.2s;
+    color: var(--text-muted);
+  }
+
+  .caret.up {
+    transform: rotate(-180deg);
+  }
+
+  .accordion-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.25s ease-out;
+  }
+
+  .accordion-content.expanded {
+    max-height: 1500px;
+    transition: max-height 0.4s ease-in;
+  }
+
+  /* 対話フィード（チャット） */
   .chat-container {
     height: 300px;
     overflow-y: auto;
@@ -365,188 +573,109 @@
     border-radius: 6px;
   }
 
-  /* 音声-IRマッピングエディタ */
+  /* 音声-IRマッピングエディタ・登録 */
+  .mapping-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+
   .mapping-list {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
-    max-height: 400px;
+    gap: 0.5rem;
+    max-height: 320px;
     overflow-y: auto;
+    margin-bottom: 1rem;
     padding-right: 0.25rem;
   }
 
   .mapping-item {
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(255, 255, 255, 0.02);
     border: 1px solid var(--card-border);
-    border-radius: 10px;
-    padding: 0.85rem;
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 0.5rem;
-    position: relative;
-    transition: border-color 0.2s;
+    border-radius: 8px;
+    padding: 0.75rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
   }
 
-  @media (min-width: 600px) {
-    .mapping-item {
-      grid-template-columns: 1fr 1fr auto;
-      align-items: center;
-      gap: 1rem;
-    }
-  }
-
-  .mapping-item:hover {
-    border-color: rgba(6, 182, 212, 0.3);
-  }
-
-  .mapping-fields {
+  .mapping-info {
+    flex-grow: 1;
     display: flex;
     flex-direction: column;
-    gap: 0.3rem;
+    gap: 0.25rem;
   }
 
-  .mapping-label {
-    font-size: 0.75rem;
+  .mapping-trigger {
+    font-weight: bold;
+    color: var(--primary);
+  }
+
+  .mapping-target {
     color: var(--text-muted);
-    font-weight: 500;
-  }
-
-  .mapping-value {
-    font-size: 0.9rem;
-    font-weight: 500;
+    font-size: 0.75rem;
   }
 
   .mapping-actions {
     display: flex;
-    gap: 0.5rem;
-    justify-content: flex-end;
-    flex-wrap: wrap;
+    gap: 0.4rem;
   }
 
   .mapping-actions button {
-    padding: 0.4rem 0.8rem;
-    min-height: 36px;
-    font-size: 0.85rem;
+    min-height: 30px;
+    padding: 0 0.5rem;
+    font-size: 0.75rem;
   }
 
-  /* アコーディオン (スマホの省スペース用) */
-  .accordion-toggle {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    cursor: pointer;
-    padding: 0.5rem 0;
+  .btn-danger {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid var(--error);
+    color: var(--error);
   }
 
-  .accordion-content {
-    transition: max-height 0.3s ease-out;
-    overflow: hidden;
+  .btn-edit {
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid #f59e0b;
+    color: #f59e0b;
   }
 
-  .accordion-content.collapsed {
-    max-height: 0;
-    margin-top: 0;
-    opacity: 0;
-    pointer-events: none;
+  .mapping-form {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 1rem;
+    border-radius: 10px;
+    border: 1px solid var(--card-border);
+    margin-top: 0.5rem;
   }
 
-  .accordion-content.expanded {
-    max-height: 1000px;
-    margin-top: 1rem;
-    opacity: 1;
+  .form-full {
+    width: 100%;
   }
 
-  .caret {
-    border: solid var(--primary);
-    border-width: 0 2px 2px 0;
-    display: inline-block;
-    padding: 3px;
-    transform: rotate(45deg);
-    transition: transform 0.2s;
-  }
-
-  .caret.up {
-    transform: rotate(-135deg);
-  }
-
-  /* 音量・設定の行 */
-  .setting-row {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 0.75rem;
-  }
-
-  .setting-row label {
-    flex-shrink: 0;
-    font-size: 0.9rem;
-    color: var(--text-muted);
-  }
-
-  input[type="range"] {
-    flex-grow: 1;
-    height: 6px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 3px;
-    outline: none;
-    -webkit-appearance: none;
-  }
-
-  input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: var(--primary);
-    cursor: pointer;
-    box-shadow: 0 0 5px var(--primary-glow);
-  }
-
-  /* ログ表示 */
+  /* システムログ */
   #log {
-    max-height: 120px;
-    overflow-y: auto;
-    background: rgba(0, 0, 0, 0.4);
+    background: #000;
     border: 1px solid var(--card-border);
     border-radius: 8px;
-    padding: 0.5rem;
+    padding: 0.75rem;
+    height: 180px;
+    overflow-y: auto;
     font-family: monospace;
     font-size: 0.75rem;
-    color: #34d399;
+    line-height: 1.4;
+    white-space: pre-wrap;
   }
 
-  #log div.ng { color: var(--error); }
-  #log div.ok { color: var(--success); }
-
-  /* 新規マッピングフォーム */
-  .mapping-form {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 0.75rem;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px dashed var(--card-border);
-    border-radius: 12px;
-    padding: 1rem;
-    margin-top: 1rem;
+  .log-line {
+    margin-bottom: 0.25rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+    padding-bottom: 0.15rem;
   }
 
-  @media (min-width: 600px) {
-    .mapping-form {
-      grid-template-columns: 1fr 1fr;
-    }
-    .form-full {
-      grid-column: span 2;
-    }
-  }
-
-  .flex-row {
-    display: flex;
-    gap: 0.5rem;
-  }
-
-  .flex-row button {
-    flex: 1;
-  }
+  .log-ok { color: var(--success); }
+  .log-ng { color: var(--error); }
+  .log-warn { color: #eab308; }
 
   .note-warning {
     background: rgba(239, 68, 68, 0.1);
@@ -561,190 +690,316 @@
   .note-warning strong {
     color: var(--text-main);
   }
-
-  /* 設定モーダル */
-  #settingsModal.show {
-    display: flex !important;
-    opacity: 1 !important;
-    pointer-events: auto !important;
-  }
 </style>
 </head>
 <body>
 <div class="container">
-  <header>
-    <h1>Voice Control Center <small style="font-size: 0.6em; color: var(--text-muted); font-weight: normal; margin-left: 0.5rem; border: 1px solid var(--card-border); padding: 0.15rem 0.45rem; border-radius: 6px; background: rgba(255,255,255,0.02); vertical-align: middle;">v1.1</small></h1>
-    <div style="display: flex; gap: 0.75rem; align-items: center;">
-      <button id="btnOpenSettings" style="min-height: 36px; padding: 0 0.75rem; font-size: 0.85rem; background: rgba(255,255,255,0.05);"><span style="font-size:1.1rem;">⚙️</span> システム設定</button>
-      <a href="./index.html" class="back-link">&larr; Flasher Top</a>
+  
+  <!-- ============================================== -->
+  <!-- (1) 対話 ＆ 音声コントロールページ              -->
+  <!-- ============================================== -->
+  <div id="pageDialogue" class="page-container">
+    <header>
+      <h1>Voice Control Center <small style="font-size: 0.6em; color: var(--text-muted); font-weight: normal; margin-left: 0.5rem; border: 1px solid var(--card-border); padding: 0.15rem 0.45rem; border-radius: 6px; background: rgba(255,255,255,0.02); vertical-align: middle;">v1.1</small></h1>
+      <div style="display: flex; gap: 0.75rem; align-items: center;">
+        <button id="btnGotoSettings" style="min-height: 36px; padding: 0 0.75rem; font-size: 0.85rem; background: rgba(255,255,255,0.05);"><span style="font-size:1.1rem;">⚙️</span> システム設定</button>
+        <a href="./index.html" class="back-link">&larr; Flasher Top</a>
+      </div>
+    </header>
+
+    <!-- iOSなどの非対応環境向けのアラート -->
+    <div id="browserAlert" class="note-warning" style="display: none;">
+      <strong>ブラウザ非互換の警告:</strong> お使いのブラウザは Web Bluetooth または 音声認識 (SpeechRecognition) に対応していません。Android Chrome もしくは PC の Google Chrome で動作させてください。
     </div>
-  </header>
 
-  <!-- iOSなどの非対応環境向けのアラート -->
-  <div id="browserAlert" class="note-warning" style="display: none;">
-    <strong>ブラウザ非互換の警告:</strong> お使いのブラウザは Web Bluetooth または 音声認識 (SpeechRecognition) に対応していません。Android Chrome もしくは PC の Google Chrome で動作させてください。
-  </div>
-
-  <div class="grid-layout">
-    
-    <!-- 左サイドバー: 接続 ＆ 設定 ＆ 赤外線学習 -->
-    <aside class="sidebar-panel">
-      <!-- BLE接続カード -->
-      <section class="card">
-        <h2 class="card-title">
-          1. BLE 接続
-          <span id="connStatus" class="status-badge">未接続</span>
-        </h2>
-        
-        <div class="flex-row" style="margin-bottom: 0.75rem;">
-          <button id="btnConnect" class="btn-primary">接続スキャン</button>
-          <button id="btnDisconnect" disabled>切断</button>
-        </div>
-        
-        <div class="setting-row">
-          <label for="voiceVolume">発声音量</label>
-          <input type="range" id="voiceVolume" min="0" max="100" value="70">
-          <span id="volLabel" style="font-size: 0.85rem; width: 28px; text-align: right;">70</span>
-        </div>
-
-        <div class="accordion-toggle" id="toggleCfg">
-          <span style="font-size: 0.85rem; color: var(--text-muted);">デバイス構成情報</span>
-          <span class="caret" id="cfgCaret"></span>
-        </div>
-        <div class="accordion-content collapsed" id="cfgPanel">
-          <pre id="cfgView" style="font-size: 0.75rem; background: rgba(0,0,0,0.3); padding: 0.5rem; border-radius: 6px; overflow-x: auto; max-width: 100%;">未接続</pre>
-        </div>
+    <!-- 1. 起動時 (未接続時) パネル: BLE接続のみ表示 -->
+    <div id="bleInitPanel" style="display: block;">
+      <section class="card" style="max-width: 480px; margin: 3rem auto; text-align: center; border-color: rgba(6, 182, 212, 0.4); box-shadow: 0 0 30px rgba(6, 182, 212, 0.15);">
+        <h2 class="card-title" style="justify-content: center; border: none; padding: 0; font-size: 1.25rem; margin-bottom: 0.75rem;">1. BLE デバイス接続</h2>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.5rem; line-height: 1.5;">
+          M5Stack Atom Lite もしくは AtomS3 (notif v10 ファームウェア) に Web Bluetooth で接続します。<br>
+          接続後、自動的に対話コントロール・顔認識オート起動が有効になります。
+        </p>
+        <button id="btnConnect" class="btn-primary" style="width: 100%; font-size: 1.05rem; min-height: 50px; font-weight: bold; border-radius: 10px;">接続スキャンを開始</button>
       </section>
+    </div>
 
-      <!-- 赤外線学習カード (オプショナル) -->
-      <section class="card" id="irRxCard">
-        <h2 class="card-title">
-          3. 赤外線学習
-          <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal;">(オプショナル)</span>
-        </h2>
-        <p class="mapping-label" style="margin-bottom: 0.5rem;">※おもちゃを制御する赤外線リモコンの信号をAtomに学習させます。IRモジュールの接続が必要です。</p>
-        
-        <div class="flex-row" style="margin-bottom: 0.75rem;">
-          <button id="btnIrRxStart" disabled>学習開始</button>
-          <button id="btnIrRxStop" disabled>学習停止</button>
-        </div>
-        
-        <div class="form-group">
-          <label>直近受信データ</label>
-          <pre id="irRxView" style="font-size: 0.75rem; background: rgba(0,0,0,0.3); padding: 0.5rem; border-radius: 6px; max-height: 80px; overflow-y: auto;">(未受信)</pre>
-        </div>
-        
-        <div class="form-group">
-          <label for="irPatternName">登録名</label>
-          <div class="flex-row">
-            <input type="text" id="irPatternName" placeholder="例: toy_forward" style="flex-grow: 1;">
-            <button id="btnIrSave" disabled class="btn-accent">保存</button>
+    <!-- 2. BLE接続後に有効になるメインコンテンツ -->
+    <div id="bleActiveContent" style="display: none;">
+      <!-- BLE接続ステータスバー (音声入力ペインのすぐ上) -->
+      <div class="conn-status-bar card">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; width: 100%;">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span class="status-indicator connected"></span>
+            <span id="connStatusText" style="font-weight: bold; font-size: 0.9rem;">Atom Lite に接続中</span>
+            <span id="connStatusDeviceType" class="status-badge connected" style="font-size: 0.7rem;">atomlite</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <div style="display: flex; align-items: center; gap: 0.3rem;">
+              <span style="font-size: 0.75rem; color: var(--text-muted);">発声音量:</span>
+              <input type="range" id="voiceVolume" min="0" max="100" value="70" style="min-height: auto; width: 80px;">
+              <span id="volLabel" style="font-size: 0.75rem; width: 22px; text-align: right;">70</span>
+            </div>
+            <button id="btnDisconnect" class="btn-disconnect-tiny">切断</button>
           </div>
         </div>
+      </div>
 
-        <!-- バックアップ・移行 (Export/Import) -->
-        <div style="border-top: 1px dashed var(--card-border); margin-top: 1rem; padding-top: 0.75rem; display: flex; gap: 0.5rem; justify-content: flex-end; align-items: center;">
-          <span style="font-size: 0.7rem; color: var(--text-muted); margin-right: auto;">📦 バックアップ・移行</span>
-          <button id="btnIrExport" style="background: rgba(6, 182, 212, 0.15); border: 1px solid var(--primary); padding: 0.3rem 0.6rem; font-size: 0.7rem; min-height: auto; border-radius: 4px; color: var(--primary);">エクスポート</button>
-          <button id="btnIrImport" style="background: rgba(236, 72, 153, 0.15); border: 1px solid var(--accent); padding: 0.3rem 0.6rem; font-size: 0.7rem; min-height: auto; border-radius: 4px; color: var(--accent);">インポート</button>
-          <input type="file" id="irImportFile" accept=".json" style="display: none;">
-        </div>
-      </section>
-    </aside>
+      <!-- 音声入力ペイン (スマホ/PC レスポンシブ対応) -->
+      <section class="card" id="voiceInputSection">
+        <h2 class="card-title">2. 音声対話コントロール</h2>
 
-    <!-- 右メインパネル: 音声コントロール ＆ マッピング -->
-    <main class="main-panel">
-      <!-- ボイスコントロールセンター -->
-      <section class="card">
-        <h2 class="card-title">2. 音声対話 &amp; コマンドコントロール</h2>
-        
-        <div class="voice-sphere-container">
-          <div class="voice-sphere" id="voiceSphere"></div>
-          <div class="voice-status-text" id="voiceStatusLabel">STANDBY</div>
-        </div>
-
-        <div style="text-align: center; margin-bottom: 1.25rem; display: flex; gap: 0.75rem; justify-content: center; align-items: center; flex-wrap: wrap;">
-          <button id="btnToggleSpeech" class="btn-primary" style="width: 220px; font-weight: bold; border-radius: 9999px; box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);">
-            音声認識を開始する
-          </button>
-          <button id="btnOpenSettingsShortcut" class="btn-accent" style="min-height: 44px; padding: 0 1.25rem; border-radius: 9999px; background: rgba(139, 92, 246, 0.15); border: 1px solid var(--secondary); color: var(--secondary); font-size: 0.85rem; font-weight: bold; box-shadow: none; display: inline-flex; align-items: center; gap: 0.35rem; transition: all 0.2s;">
-            ⚙️ AI・システム設定
-          </button>
-        </div>
-        
-        <!-- 顔認識オート起動アコーディオン -->
-        <div class="accordion-toggle" id="toggleFaceAutoStart" style="margin-bottom: 1.25rem; border-top: 1px dashed var(--card-border); padding-top: 0.75rem;">
-          <span style="font-size: 0.9rem; font-weight: 600; color: var(--primary); display: inline-flex; align-items: center; gap: 0.4rem;">
-            📸 顔認識オート音声入力 <span id="faceStatusBadge" class="status-badge" style="background: rgba(255, 255, 255, 0.05); color: var(--text-muted); font-size: 0.65rem; padding: 0.1rem 0.35rem; border-radius: 4px; font-weight: normal; vertical-align: middle; margin-left: 0.3rem;">OFF</span>
-          </span>
-          <span class="caret" id="faceAutoStartCaret"></span>
-        </div>
-        
-        <div class="accordion-content collapsed" id="faceAutoStartPanel" style="margin-bottom: 1.25rem;">
-          <div style="background: rgba(0, 0, 0, 0.2); padding: 0.85rem; border-radius: 10px; border: 1px solid var(--card-border);">
-            <p class="mapping-label" style="margin-bottom: 0.75rem; line-height: 1.4;">インカメラ映像で顔検出を行い、顔が画面内で一定以上の大きさ（近づいた状態）になると自動で音声認識を開始します。</p>
-            
-            <div style="display: flex; gap: 0.75rem; align-items: center; margin-bottom: 0.75rem;">
-              <button id="btnToggleFaceDetection" style="flex-grow: 1; min-height: 40px; font-weight: bold; font-size: 0.85rem; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px;">
-                顔認識を起動
-              </button>
-              <div style="display: flex; flex-direction: column; width: 100px; align-items: center;">
-                <span class="mapping-label" style="text-align: center; font-size: 0.65rem; margin-bottom: 0.15rem;">起動しきい値</span>
-                <input type="range" id="faceSizeThreshold" min="10" max="90" value="30" style="min-height: auto; width: 100%;">
-                <span id="thresholdLabel" style="font-size: 0.75rem; text-align: center; color: var(--primary); font-weight: bold; margin-top: 0.15rem;">30%</span>
-              </div>
+        <div class="device-responsive-layout">
+          <!-- A. 顔認識プレビューエリア（スマホでは大きく、PCでは小さく） -->
+          <div id="faceDetectionWrapper" class="face-wrapper">
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.35rem; font-weight: 600; text-align: center; display: flex; align-items: center; justify-content: center; gap: 0.3rem;">
+              📸 顔認識オート音声入力
+              <span id="faceStatusBadge" class="status-badge" style="background: rgba(255, 255, 255, 0.05); color: var(--text-muted); font-size: 0.65rem; padding: 0.05rem 0.25rem; border-radius: 4px;">OFF</span>
             </div>
-
-            <!-- カメラプレビューコンテナ -->
-            <div style="position: relative; width: 100%; max-width: 240px; margin: 0 auto; aspect-ratio: 4/3; background: #000; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);">
+            
+            <div class="camera-preview-container" id="faceTapArea" style="cursor: pointer;">
               <video id="faceVideo" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);"></video>
               <canvas id="faceCanvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: scaleX(-1); pointer-events: none;"></canvas>
+              <!-- スキャン線エフェクト -->
+              <div class="scanline"></div>
               
               <!-- 検出ステータス表示のオーバーレイ -->
-              <div id="faceOverlayText" style="position: absolute; bottom: 8px; left: 8px; right: 8px; background: rgba(0,0,0,0.6); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.7rem; text-align: center; color: #fff; border: 1px solid rgba(255,255,255,0.15);">
+              <div id="faceOverlayText" style="position: absolute; bottom: 8px; left: 8px; right: 8px; background: rgba(0,0,0,0.65); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.7rem; text-align: center; color: #fff; border: 1px solid rgba(255,255,255,0.15); pointer-events: none;">
                 カメラ未起動
               </div>
             </div>
-          </div>
-        </div>
 
-        <div class="form-group">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
-            <label style="margin-bottom: 0;">対話履歴</label>
-            <button id="btnClearChat" style="min-height: auto; padding: 0.3rem 0.75rem; font-size: 0.75rem; border-radius: 6px; background: rgba(239, 68, 68, 0.15); border: 1px solid var(--error); color: #ef4444; cursor: pointer; display: inline-flex; align-items: center; gap: 0.25rem;">
-              🗑️ 履歴をクリア
-            </button>
+            <!-- スマホではタップで停止・起動する案内 -->
+            <div style="font-size: 0.62rem; color: var(--text-muted); text-align: center; margin-top: 0.35rem; font-style: italic;">
+              (プレビュー枠をタップで顔検出を一時停止/再開)
+            </div>
+            
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.5rem; gap: 0.5rem;">
+              <span class="mapping-label" style="font-size: 0.65rem;">しきい値: <span id="thresholdLabel" style="color: var(--primary); font-weight: bold;">30%</span></span>
+              <input type="range" id="faceSizeThreshold" min="10" max="90" value="30" style="min-height: auto; width: 110px;">
+            </div>
           </div>
-          <div class="chat-container" id="chatFeed">
-            <div class="chat-msg system">「音声認識を開始」ボタンを押して話しかけてください。「テレビをつけて」などの登録音声で赤外線を送信します。</div>
+
+          <!-- B. ホログラフィックボイス球体 ＆ マイク起動 -->
+          <div id="voiceSphereWrapper" class="sphere-wrapper">
+            <div class="voice-sphere-container" style="position: relative; display: flex; flex-direction: column; align-items: center; margin-bottom: 0.5rem;">
+              <div class="voice-sphere" id="voiceSphere"></div>
+              <div class="voice-status-text" id="voiceStatusLabel">STANDBY</div>
+            </div>
+
+            <!-- 音声トグルボタン (スマホでは小さく、PCでは大きく) -->
+            <button id="btnToggleSpeech" class="btn-mic-toggle btn-primary" style="width: 100%; border-radius: 9999px;">
+              <span class="mic-icon">🎤</span>
+              <span class="mic-text">マイク入力開始</span>
+            </button>
           </div>
         </div>
       </section>
 
-      <!-- 音声-IRマッピングエディタ -->
-      <section class="card">
-        <div class="accordion-toggle" id="toggleMapping" style="padding: 0;">
-          <h2 class="card-title" style="margin: 0; border: none; padding: 0;">4. 音声・赤外線マッピング設定</h2>
-          <span class="caret up" id="mappingCaret"></span>
+      <!-- 3. 対話フィード（チャット） -->
+      <section class="card" id="chatCard">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+          <h2 class="card-title" style="margin-bottom: 0;">3. 対話フィード</h2>
+          <button id="btnClearChat" style="min-height: auto; padding: 0.3rem 0.75rem; font-size: 0.75rem; border-radius: 6px; background: rgba(239, 68, 68, 0.15); border: 1px solid var(--error); color: #ef4444; cursor: pointer; display: inline-flex; align-items: center; gap: 0.25rem;">
+            🗑️ 履歴をクリア
+          </button>
         </div>
+        <div class="chat-container" id="chatFeed">
+          <div class="chat-msg system">「マイク入力」または「顔認識オート起動」で話しかけてください。「テレビをつけて」などの登録音声で赤外線を送信します。</div>
+        </div>
+      </section>
+
+      <!-- 5. デバッグログ -->
+      <section class="card" id="logCard">
+        <div class="accordion-toggle" id="toggleLog">
+          <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: bold;">System Logs</span>
+          <span class="caret" id="logCaret"></span>
+        </div>
+        <div class="accordion-content collapsed" id="systemLogPanel">
+          <div id="log"></div>
+          <div style="margin-top: 0.5rem; text-align: right;">
+            <button id="btnClearLog" style="min-height: 32px; padding: 0 0.75rem; font-size: 0.8rem;">ログクリア</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+
+  <!-- ============================================== -->
+  <!-- (2) システム設定・赤外線管理ページ               -->
+  <!-- ============================================== -->
+  <div id="pageSettings" class="page-container" style="display: none;">
+    <header>
+      <h1>Voice Control - 設定センター</h1>
+      <button id="btnBackToDialogue" style="min-height: 36px; padding: 0 0.75rem; font-size: 0.85rem; background: rgba(255,255,255,0.05); font-weight: bold;">&larr; 対話に戻る</button>
+    </header>
+
+    <div class="grid-layout">
+      
+      <!-- 左側: システム共通設定 & デバイス情報 -->
+      <aside class="sidebar-panel">
         
-        <div class="accordion-content expanded" id="mappingPanel">
-          <p class="mapping-label" style="margin-bottom: 0.75rem;">特定の音声トリガー（正規表現対応）でおもちゃに送信する赤外線パターンと、対話の返答をカスタマイズします。</p>
+        <!-- ⚙️ システム設定カード -->
+        <section class="card">
+          <h2 class="card-title">⚙️ システム設定</h2>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">
+            赤外線（IR）送信ピンおよびAI自然対話（APIキー）などのシステム共通設定を行います。
+          </p>
           
-          <div class="mapping-list" id="mappingList">
-            <!-- 動的に生成 -->
+          <div class="form-group">
+            <label for="settingsIrTxPin">赤外線送信 (IR TX) GPIOピン</label>
+            <select id="settingsIrTxPin">
+              <option value="">(デフォルト - ファーム標準)</option>
+            </select>
+            <div class="note" style="font-size:0.75rem; color:var(--text-muted); margin-top:0.5rem; line-height:1.4;">
+              ※標準ピン: Atom Lite=G12, AtomS3=G4<br>
+              外部IR Unit接続時の例: G32 (Grove)
+            </div>
           </div>
 
-          <!-- 新規登録アコーディオン -->
-          <div class="accordion-toggle" id="toggleAddForm" style="margin-top: 1rem; border-top: 1px dashed var(--card-border); padding-top: 0.75rem;">
-            <span id="addFormTitle" style="font-size: 0.9rem; font-weight: 600; color: var(--primary);">+ 新しい音声アクションを追加</span>
-            <span class="caret" id="addFormCaret"></span>
+          <!-- 自然対話 (AI) 設定 -->
+          <div style="border-top: 1px dashed var(--card-border); margin: 1.25rem 0 1rem 0; padding-top: 1rem;">
+            <h4 style="font-size: 0.95rem; font-weight: 600; color: var(--primary); margin-bottom: 0.5rem;">🤖 自然対話 (AI) 設定</h4>
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+              定型アクション以外の発話に対し、AIによる自然対話応答を行います。<br>
+              Chromeの「Built-in AI (Gemini Nano)」が有効な場合は完全ローカルで動作します。<br>
+              <span style="color: var(--accent); font-weight: 500; display: block; margin-top: 0.25rem;">※Android Chrome 等のモバイル環境は現在 Chrome 内蔵 AI (Gemini Nano) に非対応です。スマートフォンで動作させるには、下部の「Gemini API キー」を入力してフォールバック接続をご使用ください。</span>
+            </p>
+            
+            <div class="form-group" style="margin-bottom: 0.75rem;">
+              <label>ローカル AI (Gemini Nano) 検出ステータス</label>
+              <div id="localAiStatus" style="font-size: 0.85rem; font-weight: bold; color: var(--error); margin-top: 0.2rem;">非対応 / 未検出</div>
+              
+              <!-- ローカルAI有効化ガイド -->
+              <div id="localAiGuide" style="margin-top: 0.75rem; padding: 0.75rem; background: rgba(239, 68, 68, 0.08); border-left: 2px solid var(--error); border-radius: 6px; font-size: 0.75rem; line-height: 1.45; display: none;">
+                <strong style="color: var(--text-main); display: block; margin-bottom: 0.5rem;">💡 ChromeでローカルAI（Gemini Nano）を有効にする手順</strong>
+                
+                <div style="margin-bottom: 0.75rem;">
+                  <strong style="color: var(--primary); display: block; margin-bottom: 0.25rem;">1. Chrome flags（隠し設定）で機能を有効にする</strong>
+                  <span style="color: var(--text-muted); display: block; margin-bottom: 0.3rem;">アドレスバーに以下のURLをコピー＆ペーストして開き、それぞれのフラグを設定します（クリックでURLをコピーできます）。</span>
+                  <ul style="margin-left: 1.1rem; color: var(--text-muted); list-style: decimal; padding-left: 0;">
+                    <li style="margin-bottom: 0.3rem;">
+                      <a href="#" class="chrome-link" data-url="chrome://flags/#optimization-guide-on-device-model" style="color: var(--primary); text-decoration: underline; font-weight: bold;">chrome://flags/#optimization-guide-on-device-model</a> を開き、<strong style="color: var(--text-main);">「Enabled BypassPrefRequirement」</strong>に変更。
+                    </li>
+                    <li style="margin-bottom: 0.3rem;">
+                      <a href="#" class="chrome-link" data-url="chrome://flags/#prompt-api-for-gemini-nano" style="color: var(--primary); text-decoration: underline; font-weight: bold;">chrome://flags/#prompt-api-for-gemini-nano</a> を開き、<strong style="color: var(--text-main);">「Enabled」</strong>に変更。
+                    </li>
+                    <li style="margin-bottom: 0.3rem;">
+                      Chromeを再起動（Relaunch）します。
+                    </li>
+                  </ul>
+                </div>
+
+                <div>
+                  <strong style="color: var(--primary); display: block; margin-bottom: 0.25rem;">2. Gemini Nano モデルをダウンロードする</strong>
+                  <ul style="margin-left: 1.1rem; color: var(--text-muted); list-style: decimal; padding-left: 0;">
+                    <li style="margin-bottom: 0.3rem;">
+                      <a href="#" class="chrome-link" data-url="chrome://components" style="color: var(--primary); text-decoration: underline; font-weight: bold;">chrome://components</a> を開きます。
+                    </li>
+                    <li style="margin-bottom: 0.3rem;">
+                      <strong style="color: var(--text-main);">「Optimization Guide On Device Model」</strong>を探し、<strong style="color: var(--text-main);">「アップデートを確認 (Check for update)」</strong> をクリック。
+                    </li>
+                    <li style="margin-bottom: 0.3rem;">
+                      ステータスが <strong style="color: var(--text-main);">「更新完了」</strong>（0.0.0.0以外）になるまで待ちます。
+                    </li>
+                  </ul>
+                </div>
+                
+                <div style="font-size: 0.75rem; color: #34d399; margin-top: 0.75rem; font-weight: bold; display: none; background: rgba(52, 211, 153, 0.1); padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid rgba(52, 211, 153, 0.3);" id="copyToast">URLをコピーしました！アドレスバーに貼り付け（ペースト）してください。</div>
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0.75rem;">
+              <label for="settingsSystemPrompt">AIシステムプロンプト（キャラクター設定）</label>
+              <textarea id="settingsSystemPrompt" rows="4" style="background: rgba(0, 0, 0, 0.3); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.75rem; width: 100%; color: var(--text-main); font-family: inherit; font-size: 0.9rem; resize: vertical; min-height: 80px;" placeholder="のんきなのちゃんの性格や口調などを入力してください..."></textarea>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0;">
+              <label for="settingsGeminiKey">Gemini API キー (ローカルAI未検出時のフォールバック用)</label>
+              <input type="text" id="settingsGeminiKey" placeholder="AIzaSy..." style="font-size: 0.9rem;">
+              <div class="note" style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.3rem;">
+                ※設定キーはローカル（localStorage）に安全に保存されます。
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top: 1.5rem;">
+            <button id="btnSaveSettings" class="btn-primary" style="min-height: 40px; width: 100%;">設定を保存</button>
+          </div>
+        </section>
+
+        <!-- デバイス構成情報 -->
+        <section class="card">
+          <div class="accordion-toggle" id="toggleCfg">
+            <span style="font-size: 0.85rem; color: var(--text-muted);">デバイス構成情報</span>
+            <span class="caret" id="cfgCaret"></span>
+          </div>
+          <div class="accordion-content collapsed" id="cfgPanel">
+            <pre id="cfgView" style="font-size: 0.75rem; background: rgba(0,0,0,0.3); padding: 0.5rem; border-radius: 6px; overflow-x: auto; max-width: 100%;">未接続</pre>
+          </div>
+        </section>
+      </aside>
+
+      <!-- 右側: 赤外線学習 ＆ マッピング設定 -->
+      <main class="main-panel">
+        
+        <!-- 3. 赤外線学習カード -->
+        <section class="card" id="irRxCard">
+          <h2 class="card-title">
+            3. 赤外線シグナル学習
+          </h2>
+          <p class="mapping-label" style="margin-bottom: 0.5rem;">※おもちゃを制御する赤外線リモコンの信号をAtomに学習させます。IRモジュールの接続が必要です。</p>
+          
+          <div class="flex-row" style="margin-bottom: 0.75rem;">
+            <button id="btnIrRxStart" disabled>学習開始</button>
+            <button id="btnIrRxStop" disabled>学習停止</button>
           </div>
           
-          <div class="accordion-content collapsed" id="addFormPanel">
-            <div class="mapping-form">
+          <div class="form-group">
+            <label>直近受信データ</label>
+            <pre id="irRxView" style="font-size: 0.75rem; background: rgba(0,0,0,0.3); padding: 0.5rem; border-radius: 6px; max-height: 80px; overflow-y: auto;">(未受信)</pre>
+          </div>
+          
+          <div class="form-group">
+            <label for="irPatternName">登録名</label>
+            <div class="flex-row">
+              <input type="text" id="irPatternName" placeholder="例: toy_forward" style="flex-grow: 1;">
+              <button id="btnIrSave" disabled class="btn-accent">保存</button>
+            </div>
+          </div>
+
+          <!-- バックアップ・移行 (Export/Import) -->
+          <div style="border-top: 1px dashed var(--card-border); margin-top: 1rem; padding-top: 0.75rem; display: flex; gap: 0.5rem; justify-content: flex-end; align-items: center;">
+            <span style="font-size: 0.7rem; color: var(--text-muted); margin-right: auto;">📦 設定バックアップ・移行</span>
+            <button id="btnIrExport" style="background: rgba(6, 182, 212, 0.15); border: 1px solid var(--primary); padding: 0.3rem 0.6rem; font-size: 0.7rem; min-height: auto; border-radius: 4px; color: var(--primary);">エクスポート</button>
+            <button id="btnIrImport" style="background: rgba(236, 72, 153, 0.15); border: 1px solid var(--accent); padding: 0.3rem 0.6rem; font-size: 0.7rem; min-height: auto; border-radius: 4px; color: var(--accent);">インポート</button>
+            <input type="file" id="irImportFile" accept=".json" style="display: none;">
+          </div>
+        </section>
+
+        <!-- 4. 音声・赤外線マッピング設定 -->
+        <section class="card">
+          <div class="accordion-toggle" id="toggleMapping" style="padding: 0;">
+            <h2 class="card-title" style="margin: 0; border: none; padding: 0;">4. 音声・赤外線マッピング設定</h2>
+            <span class="caret up" id="mappingCaret"></span>
+          </div>
+          
+          <div class="accordion-content expanded" id="mappingPanel" style="margin-top: 0.75rem;">
+            <p class="mapping-label" style="margin-bottom: 0.75rem;">特定の音声トリガーでおもちゃに送信する赤外線パターンと、対話の返答をカスタマイズします。</p>
+            
+            <div class="mapping-list" id="mappingList">
+              <!-- 動的に生成 -->
+            </div>
+
+            <!-- 新規登録・編集フォーム -->
+            <div style="border-top: 1px dashed var(--card-border); margin-top: 1rem; padding-top: 0.75rem;">
+              <span id="addFormTitle" style="font-size: 0.9rem; font-weight: 600; color: var(--primary);">+ 新しい音声アクションを追加</span>
+            </div>
+            
+            <div class="mapping-form" style="margin-top: 0.5rem;">
               <div class="form-group">
-                <label for="newTrigger">音声トリガー（発話キーワード）</label>
+                <label for="newTrigger">音声トリガー（発話キーワード / 正規表現対応）</label>
                 <input type="text" id="newTrigger" placeholder="例: テレビ.*つけて|テレビ.*オン">
               </div>
               <div class="form-group">
@@ -767,131 +1022,15 @@
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- デバッグログ -->
-      <section class="card">
-        <div class="accordion-toggle" id="toggleLog">
-          <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: bold;">System Logs</span>
-          <span class="caret" id="logCaret"></span>
-        </div>
-        <div class="accordion-content collapsed" id="systemLogPanel">
-          <div id="log"></div>
-          <div style="margin-top: 0.5rem; text-align: right;">
-            <button id="btnClearLog" style="min-height: 32px; padding: 0 0.75rem; font-size: 0.8rem;">ログクリア</button>
-          </div>
-        </div>
-      </section>
-    </main>
-
-  </div>
-</div>
-
-<!-- ポート・システム設定モーダル -->
-<div id="settingsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 2000; align-items: flex-start; justify-content: center; opacity: 0; transition: opacity 0.25s ease; pointer-events: none; overflow-y: auto; padding: 2rem 0;">
-  <div class="card" style="width: 90%; max-width: 450px; border-color: rgba(6, 182, 212, 0.4); box-shadow: 0 0 30px rgba(6, 182, 212, 0.2); background: #0c0e17; pointer-events: auto; margin-bottom: 2rem;">
-    <h3 class="card-title">⚙️ システム設定</h3>
-    <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">
-      赤外線（IR）送信ピンおよびAI自然対話（APIキー）などのシステム共通設定を行います。
-    </p>
-    
-    <div class="form-group">
-      <label for="settingsIrTxPin">赤外線送信 (IR TX) GPIOピン</label>
-      <select id="settingsIrTxPin">
-        <option value="">(デフォルト - ファーム標準)</option>
-      </select>
-      <div class="note" style="font-size:0.75rem; color:var(--text-muted); margin-top:0.5rem; line-height:1.4;">
-        ※標準ピン: Atom Lite=G12, AtomS3=G4<br>
-        外部IR Unit接続時の例: G32 (Grove)
-      </div>
-    </div>
-
-    <!-- 自然対話 (AI) 設定 -->
-    <div style="border-top: 1px dashed var(--card-border); margin: 1.25rem 0 1rem 0; padding-top: 1rem;">
-      <h4 style="font-size: 0.95rem; font-weight: 600; color: var(--primary); margin-bottom: 0.5rem;">🤖 自然対話 (AI) 設定</h4>
-      <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.75rem;">
-        定型アクション以外の発話に対し、AIによる自然対話応答を行います。<br>
-        Chromeの「Built-in AI (Gemini Nano)」が有効な場合は完全ローカルで動作します。<br>
-        <span style="color: var(--accent); font-weight: 500; display: block; margin-top: 0.25rem;">※Android Chrome 等のモバイル環境は現在 Chrome 内蔵 AI (Gemini Nano) に非対応です。スマートフォンで動作させるには、下部の「Gemini API キー」を入力してフォールバック接続をご使用ください。</span>
-      </p>
-      
-      <div class="form-group" style="margin-bottom: 0.75rem;">
-        <label>ローカル AI (Gemini Nano) 検出ステータス</label>
-        <div id="localAiStatus" style="font-size: 0.85rem; font-weight: bold; color: var(--error); margin-top: 0.2rem;">非対応 / 未検出</div>
-        
-        <!-- ローカルAI有効化ガイド -->
-        <div id="localAiGuide" style="margin-top: 0.75rem; padding: 0.75rem; background: rgba(239, 68, 68, 0.08); border-left: 2px solid var(--error); border-radius: 6px; font-size: 0.75rem; line-height: 1.45; display: none;">
-          <strong style="color: var(--text-main); display: block; margin-bottom: 0.5rem;">💡 ChromeでローカルAI（Gemini Nano）を有効にする手順</strong>
-          
-          <div style="margin-bottom: 0.75rem;">
-            <strong style="color: var(--primary); display: block; margin-bottom: 0.25rem;">1. 【ステップ 1】Chrome flags（隠し設定）で機能を有効にする</strong>
-            <span style="color: var(--text-muted); display: block; margin-bottom: 0.3rem;">ブラウザのアドレスバーに以下のURLをコピー＆ペーストして開き、それぞれのフラグを設定します（クリックでURLをコピーできます）。</span>
-            <ul style="margin-left: 1.1rem; color: var(--text-muted); list-style: decimal; padding-left: 0;">
-              <li style="margin-bottom: 0.3rem;">
-                <a href="#" class="chrome-link" data-url="chrome://flags/#optimization-guide-on-device-model" style="color: var(--primary); text-decoration: underline; font-weight: bold;">chrome://flags/#optimization-guide-on-device-model</a> を開きます。
-                <div style="font-size: 0.7rem; padding-left: 0.5rem; margin-top: 0.1rem;">• 「Enables on-device model evaluation」（または Optimization Guide On Device Model）を <strong style="color: var(--text-main);">「Enabled BypassPrefRequirement」</strong>（または Enabled）に変更します。</div>
-              </li>
-              <li style="margin-bottom: 0.3rem;">
-                <a href="#" class="chrome-link" data-url="chrome://flags/#prompt-api-for-gemini-nano" style="color: var(--primary); text-decoration: underline; font-weight: bold;">chrome://flags/#prompt-api-for-gemini-nano</a> を開きます。
-                <div style="font-size: 0.7rem; padding-left: 0.5rem; margin-top: 0.1rem;">• 「Prompt API for Gemini Nano」（または Prompt API...）を <strong style="color: var(--text-main);">「Enabled」</strong> に変更します。</div>
-              </li>
-              <li style="margin-bottom: 0.3rem;">
-                画面の右下に表示される <strong style="color: var(--text-main);">「Relaunch」</strong>（再起動）ボタンをクリックして、Chrome を一度再起動します。
-              </li>
-            </ul>
-          </div>
-
-          <hr style="border: 0; border-top: 1px dashed var(--card-border); margin: 0.75rem 0;">
-
-          <div>
-            <strong style="color: var(--primary); display: block; margin-bottom: 0.25rem;">2. 【ステップ 2】Gemini Nano モデルのダウンロードを完了させる</strong>
-            <span style="color: var(--text-muted); display: block; margin-bottom: 0.3rem;">フラグを有効にした後、Chrome がバックグラウンドで約 1.5GB の Gemini Nano モデルファイルをパソコンに自動ダウンロードし始めます。この進捗の確認とダウンロードの強制方法です。</span>
-            <ul style="margin-left: 1.1rem; color: var(--text-muted); list-style: decimal; padding-left: 0;">
-              <li style="margin-bottom: 0.3rem;">
-                アドレスバーに <a href="#" class="chrome-link" data-url="chrome://components" style="color: var(--primary); text-decoration: underline; font-weight: bold;">chrome://components</a> と入力してエンターキーを押し、コンポーネント一覧ページを開きます（クリックでコピー）。
-              </li>
-              <li style="margin-bottom: 0.3rem;">
-                ページ内から <strong style="color: var(--text-main);">「Optimization Guide On Device Model」</strong>（オンデバイスモデル最適化ガイド）という項目を探します。
-              </li>
-              <li style="margin-bottom: 0.3rem;">
-                その下にある <strong style="color: var(--text-main);">「アップデートを確認 (Check for update)」</strong> ボタンをクリックします。
-              </li>
-              <li style="margin-bottom: 0.3rem;">
-                ステータスが <strong style="color: var(--text-main);">「ダウンロード中...」</strong> または <strong style="color: var(--text-main);">「更新完了」</strong> になるまで待ちます。
-                <div style="font-size: 0.7rem; padding-left: 0.5rem; margin-top: 0.1rem; color: var(--text-muted);">
-                  ※モデルサイズが大きいため、回線速度によって数分〜10分程度かかります。<br>
-                  ※ステータス横のバージョン番号が <strong style="color: var(--text-main);">0.0.0.0 以外の数値</strong> に変わればダウンロード完了です。
-                </div>
-              </li>
-            </ul>
-          </div>
-          
-          <div style="font-size: 0.75rem; color: #34d399; margin-top: 0.75rem; font-weight: bold; display: none; background: rgba(52, 211, 153, 0.1); padding: 0.4rem 0.6rem; border-radius: 4px; border: 1px solid rgba(52, 211, 153, 0.3);" id="copyToast">URLをコピーしました！アドレスバーに貼り付け（ペースト）してください。</div>
-        </div>
-      </div>
-
-      <div class="form-group" style="margin-bottom: 0.75rem;">
-        <label for="settingsSystemPrompt">AIシステムプロンプト（キャラクター設定）</label>
-        <textarea id="settingsSystemPrompt" rows="4" style="background: rgba(0, 0, 0, 0.3); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.75rem; width: 100%; color: var(--text-main); font-family: inherit; font-size: 0.9rem; resize: vertical; min-height: 80px;" placeholder="のんきなのちゃんの性格や口調などを入力してください..."></textarea>
-      </div>
-
-      <div class="form-group" style="margin-bottom: 0;">
-        <label for="settingsGeminiKey">Gemini API キー (ローカルAI未検出時のフォールバック用)</label>
-        <input type="text" id="settingsGeminiKey" placeholder="AIzaSy..." style="font-size: 0.9rem;">
-        <div class="note" style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.3rem;">
-          ※キーを設定すると、ローカルAI非対応の環境でも外部API経由で自然対話が可能になります。キーはローカル（localStorage）に安全に保存されます。
-        </div>
-      </div>
-    </div>
-
-    <div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.5rem;">
-      <button id="btnCancelSettings" style="min-height: 40px; background: rgba(255,255,255,0.05);">キャンセル</button>
-      <button id="btnSaveSettings" class="btn-primary" style="min-height: 40px;">設定を保存</button>
+      </main>
     </div>
   </div>
+
 </div>
 
+<!-- AquesTalk音声データ再生用のAudioコンテキスト等が必要な場合のJS処理と、BLE連携処理 -->
 <script src="voice_control.js"></script>
 </body>
 </html>
