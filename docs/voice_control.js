@@ -579,9 +579,8 @@ const VoiceControl = (() => {
     // 音量適用
     await sendVoiceVolume();
 
-    // 簡易ピッチと数字よみ変換およびクレンジングされた読みの取得
-    const accentedYomi = toAccentString(yomi);
-    const cleanYomi = cleanYomiText(accentedYomi);
+    // クレンジングされた読みの取得
+    const cleanYomi = cleanYomiText(yomi);
     const bytes = new TextEncoder().encode(cleanYomi);
 
     if (bytes.length > VOICE_MTU_MAX) {
@@ -671,111 +670,10 @@ const VoiceControl = (() => {
     
     // カタカナ・ひらがな変換後の残存漢字を排除し、ひらがな/数字/アルファベット/スペースのみにする
     // ひらがな範囲: \u3040-\u309F、長音: ー
-    // アルファベット・数字、スペース、ピッチ記号(↑↓)
-    const allowedRegex = /[\u3040-\u309fーa-zA-Z0-9\s↑↓]/g;
+    // アルファベット・数字、スペース
+    const allowedRegex = /[\u3040-\u309fーa-zA-Z0-9\s]/g;
     const matches = clean.match(allowedRegex);
     return matches ? matches.join('') : '';
-  }
-
-  // ── モーラ分割・簡易ピッチ・数字よみ変換 ──
-  const KOGAKI_TO_VOWEL = {
-    "ぁ": "あ", "ぃ": "い", "ぅ": "う", "ぇ": "え", "ぉ": "お",
-    "ゃ": "あ", "ゅ": "う", "ょ": "お",
-  };
-
-  const LAST_TO_VOWEL = {
-    "あぁ": "あ", "いぃ": "い", "うぅ": "う", "えぇ": "え", "おぉ": "お",
-    "かが": "あ", "きぎ": "い", "くぐ": "う", "けげ": "え", "こご": "お",
-    "さざ": "あ", "しじ": "い", "すず": "う", "せぜ": "え", "そぞ": "お",
-    "ただ": "あ", "ちぢ": "い", "つづ": "う", "てで": "え", "とど": "お",
-    "な":   "あ", "に":   "い", "ぬ":   "う", "ね":   "え", "の":   "お",
-    "はば": "あ", "ひび": "い", "ふぶ": "う", "へべ": "え", "ほぼ": "お",
-    "ぱ":   "あ", "ぴ":   "い", "ぷ":   "う", "ぺ":   "え", "ぽ":   "お",
-    "ま":   "あ", "み":   "い", "む":   "う", "め":   "え", "も":   "お",
-    "や":   "あ", "ゆ":   "う", "よ":   "お",
-    "ら":   "あ", "り":   "い", "る":   "う", "れ":   "え", "ろ":   "お",
-    "わ":   "あ", "を":   "お", "ん":   "ん",
-  };
-
-  function resolveVowel(prevMora) {
-    if (!prevMora) return "あ";
-    const last = prevMora[prevMora.length - 1];
-    if (KOGAKI_TO_VOWEL[last]) return KOGAKI_TO_VOWEL[last];
-    for (const [chars, vowel] of Object.entries(LAST_TO_VOWEL)) {
-      if (chars.includes(last)) return vowel;
-    }
-    return "あ";
-  }
-
-  function splitMoras(hiragana) {
-    const raw = hiragana.match(/.[ぁぃぅぇぉゃゅょゎ]|っ.|ー|./gu) ?? [];
-    const result = [];
-    for (const mora of raw) {
-      if (mora === "ー") {
-        result.push(resolveVowel(result[result.length - 1]));
-      } else {
-        result.push(mora);
-      }
-    }
-    return result;
-  }
-
-  function pitchPattern(moras) {
-    const n = moras.length;
-    const type = n <= 2 ? n : 0;
-    return moras.map((mora, i) =>
-      type === 0
-        ? (i === 0 ? "L" : "H")
-        : (i === 0 ? "L" : i < type ? "H" : "L")
-    );
-  }
-
-  function toMorasWithPitch(hiragana) {
-    const moras = splitMoras(hiragana);
-    const pitches = pitchPattern(moras);
-    return moras.map((mora, i) => ({ type: "mora", value: mora, pitch: pitches[i] }));
-  }
-
-  function expandNumber(n) {
-    if (n === 0) return [{ type: "number", value: "0" }];
-    const units = [
-      [100000000, "おく"],
-      [10000,     "まん"],
-      [1000,      "せん"],
-      [100,       "ひゃく"],
-      [10,        "じゅう"],
-    ];
-    const result = [];
-    let rest = n;
-    for (const [val, reading] of units) {
-      const q = Math.floor(rest / val);
-      if (q === 0) continue;
-      if (q > 1) result.push({ type: "number", value: String(q) });
-      result.push(...toMorasWithPitch(reading));
-      rest %= val;
-    }
-    if (rest > 0) result.push({ type: "number", value: String(rest) });
-    return result;
-  }
-
-  function toAccentString(str) {
-    // ひらがなと長音記号(ー)をまとめるため [ぁ-んー] に拡張
-    const chunks = str.match(/[ぁ-んー]+|[0-9]+|[a-zA-Z]/g) ?? [];
-    const result = [];
-    for (const chunk of chunks) {
-      if (/^[0-9]+$/.test(chunk)) {
-        result.push(...expandNumber(parseInt(chunk, 10)));
-      } else if (/^[a-zA-Z]$/.test(chunk)) {
-        result.push({ type: "alpha", value: chunk });
-      } else {
-        result.push(...toMorasWithPitch(chunk));
-      }
-    }
-    return result.map(token => {
-      if (token.type === "mora")   return token.pitch === "H" ? `↑${token.value}` : `↓${token.value}`;
-      if (token.type === "alpha")  return token.value;
-      if (token.type === "number") return token.value;
-    }).join("");
   }
 
   // ===== JSON バックアップエクスポート / インポート機能 =====
@@ -794,7 +692,7 @@ const VoiceControl = (() => {
 
       // 3. バックアップ用JSONデータの作成
       const backupData = {
-        version: "1.1",
+        version: "1.0",
         exportedAt: new Date().toISOString(),
         irPatterns: irPatterns,
         voiceMappings: voiceMappings
