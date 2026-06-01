@@ -574,6 +574,30 @@ const VoiceControl = (() => {
     }
   }
 
+  async function submitKeyboardInput() {
+    const inputEl = $('txtKeyboardInput');
+    if (!inputEl) return;
+    
+    const text = inputEl.value.trim();
+    if (!text) return;
+    
+    inputEl.value = '';
+    log(`キーボード入力送信: 「${text}」`, 'ok');
+    
+    // 対話ログに追加
+    appendChatMessage(text, 'user');
+    
+    // 球体ステータスを変更
+    setSphereState('speaking', 'AI応答生成中...');
+    
+    try {
+      await handleVoiceCommand(text);
+    } catch (e) {
+      log(`キーボード入力処理エラー: ${e.message}`, 'ng');
+      setSphereState('standby', 'STANDBY');
+    }
+  }
+
   function setSphereState(state, labelText) {
     const sphere = $('voiceSphere');
     const label = $('voiceStatusLabel');
@@ -1879,6 +1903,15 @@ const VoiceControl = (() => {
       if (isConnected) {
         log("カメラプレビュー窓がタップされました。顔検出を切り替えます...");
         await toggleFaceDetection();
+      }
+    });
+
+    // キーボードメッセージ入力のイベント登録
+    bindEvent('btnSendKeyboardInput', 'click', submitKeyboardInput);
+    bindEvent('txtKeyboardInput', 'keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        submitKeyboardInput();
       }
     });
 

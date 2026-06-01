@@ -788,10 +788,16 @@
             </div>
 
             <!-- 音声トグルボタン (スマホでは小さく、PCでは大きく) -->
-            <button id="btnToggleSpeech" class="btn-mic-toggle btn-primary" style="width: 100%; border-radius: 9999px;">
+            <button id="btnToggleSpeech" class="btn-mic-toggle btn-primary" style="width: 100%; border-radius: 9999px; margin-bottom: 0.75rem;">
               <span class="mic-icon">🎤</span>
               <span class="mic-text">マイク入力開始</span>
             </button>
+
+            <!-- キーボードテキスト入力エリア -->
+            <div id="keyboardInputContainer" style="display: flex; gap: 0.5rem; width: 100%;">
+              <input type="text" id="txtKeyboardInput" placeholder="のんきなのちゃんに話しかける..." style="flex-grow: 1; min-height: 38px; padding: 0.5rem 0.75rem; font-size: 0.85rem; border-radius: 8px; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: #fff;">
+              <button id="btnSendKeyboardInput" class="btn-primary" style="min-height: 38px; padding: 0 1rem; font-size: 0.85rem; border-radius: 8px; font-weight: bold; flex-shrink: 0; box-shadow: none;">送信</button>
+            </div>
           </div>
         </div>
       </section>
