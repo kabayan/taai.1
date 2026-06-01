@@ -88,6 +88,7 @@
     padding: 1.25rem;
     margin-bottom: 1rem;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    min-width: 0;
   }
 
   .card-title {
@@ -193,6 +194,10 @@
     display: grid;
     grid-template-columns: 1fr;
     gap: 1rem;
+  }
+
+  .sidebar-panel, .main-panel {
+    min-width: 0;
   }
 
   @media (min-width: 800px) {
@@ -305,7 +310,7 @@
     letter-spacing: 0.1em;
   }
 
-  /* 対話フィード（チャット） */
+  /* 对话フィード（チャット） */
   .chat-container {
     height: 300px;
     overflow-y: auto;
@@ -317,6 +322,8 @@
     flex-direction: column;
     gap: 0.75rem;
     scroll-behavior: smooth;
+    max-width: 100%;
+    min-width: 0;
   }
 
   .chat-msg {
@@ -325,6 +332,7 @@
     border-radius: 12px;
     font-size: 0.95rem;
     word-break: break-all;
+    overflow-wrap: break-word;
     animation: fade-in 0.3s ease;
   }
 
